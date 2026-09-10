@@ -1,0 +1,21 @@
+# Rust
+/target
+**/target
+
+# Node / Tauri frontend
+node_modules
+dist
+.vite
+
+# Binario sidecar descargado (no se versiona: ~50 MB por plataforma)
+/src-tauri/resources/rclone*
+/vendor/rclone*
+
+# --- SECRETOS Y DATOS DE CLIENTES ---
+# El repositorio es PUBLICO. Nada de esto puede entrar nunca.
+*.env
+.env*
+config.local.json
+probe-report-*.json
+probe-report-*.txt
+credenciales*

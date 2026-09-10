@@ -1,0 +1,21 @@
+[package]
+name = "iuredav-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Sonda de diagnostico de IureDav"
+
+[[bin]]
+name = "iuredav-probe"
+path = "src/main.rs"
+
+[dependencies]
+iuredav-core = { path = "../iuredav-core" }
+anyhow.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap = { version = "4", features = ["derive", "env"] }
