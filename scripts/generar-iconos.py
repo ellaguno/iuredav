@@ -1,77 +1,194 @@
 #!/usr/bin/env python3
-"""Genera los iconos de la aplicacion a partir de una unica marca dibujada aqui.
-
-Se dibuja en codigo, y no como un binario suelto en el repositorio, para que la
-marca se pueda ajustar y regenerar sin depender de un editor grafico.
+"""Genera los iconos de la aplicacion a partir de assets/iuredav_icon.png.
 
     python3 scripts/generar-iconos.py
+
+La imagen de origen lleva la marca arriba y el logotipo "WebDAVs" debajo. A 16 y
+24 pixeles —bandeja del sistema, barra de tareas, pestana del navegador— ese texto
+es una mancha ilegible, y ademas roba un tercio de la altura, con lo que la marca
+queda apretada.
+
+Por eso los tamanos pequenos usan **solo la marca** y los grandes la imagen
+completa. Es lo que hacen las aplicaciones del sistema, y los formatos de icono lo
+contemplan: un .ico y un .icns pueden llevar arte distinto en cada resolucion.
 """
-from PIL import Image, ImageDraw
+import struct
+from collections import Counter
+from io import BytesIO
 from pathlib import Path
 
-DESTINO = Path(__file__).resolve().parent.parent / "src-tauri" / "icons"
-L = 1024                      # se dibuja grande y se reduce, para bordes suaves
-FONDO = (23, 62, 92)          # azul profundo
-CLARO = (255, 255, 255)
-ACENTO = (86, 197, 178)       # verde agua: el punto de "conectado"
+from PIL import Image
+
+RAIZ = Path(__file__).resolve().parent.parent
+ORIGEN = RAIZ / "assets" / "iuredav_icon.png"
+DESTINO = RAIZ / "src-tauri" / "icons"
+# La cabecera de la ventana tambien lleva la marca, para que coincida con el icono
+# del sistema en vez de ser un dibujo aparte.
+MARCA_UI = RAIZ / "src" / "assets" / "marca.png"
+
+# Margen alrededor del dibujo. Sin algo de aire el icono se ve pegado al borde.
+AIRE = 0.06
+# Por debajo de esto, el logotipo no se lee: se usa solo la marca.
+UMBRAL_MARCA = 64
 
 
-def marca() -> Image.Image:
-    """Una nube sobre una unidad de disco: lo que hace la aplicacion, en un glifo."""
-    img = Image.new("RGBA", (L, L), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
+def color_de_fondo(img: Image.Image) -> tuple:
+    """El color que domina el borde. La imagen de origen no es transparente."""
+    w, h = img.size
+    c = Counter()
+    for x in range(w):
+        c[img.getpixel((x, 0))[:3]] += 1
+        c[img.getpixel((x, h - 1))[:3]] += 1
+    for y in range(h):
+        c[img.getpixel((0, y))[:3]] += 1
+        c[img.getpixel((w - 1, y))[:3]] += 1
+    return c.most_common(1)[0][0]
 
-    d.rounded_rectangle([0, 0, L, L], radius=int(L * 0.22), fill=FONDO)
 
-    # Nube: tres circulos que comparten exactamente la misma linea de base, mas un
-    # rectangulo que la cierra. Si las bases no coinciden al pixel, el glifo deja un
-    # escalon y deja de leerse como una nube.
-    cy = L * 0.36
-    base = cy + L * 0.13
-    for cx, r in ((0.355, 0.115), (0.50, 0.155), (0.645, 0.105)):
-        d.ellipse([L*cx - L*r, base - 2*L*r, L*cx + L*r, base], fill=CLARO)
-    d.rectangle([L*0.355, base - L*0.10, L*0.645, base], fill=CLARO)
+def tinta_por_fila(img: Image.Image, fondo: tuple, umbral: int = 30) -> list[int]:
+    w, h = img.size
+    px = img.load()
+    return [
+        sum(1 for x in range(w) if sum(abs(a - b) for a, b in zip(px[x, y][:3], fondo)) > umbral)
+        for y in range(h)
+    ]
 
-    # Unidad: una barra con su piloto encendido.
-    by0, by1 = L*0.605, L*0.735
-    d.rounded_rectangle([L*0.20, by0, L*0.80, by1], radius=int(L*0.032), fill=CLARO)
-    d.ellipse([L*0.685, by0+L*0.038, L*0.745, by0+L*0.098], fill=ACENTO)
 
-    # Segunda barra, mas corta: sugiere varias carpetas montadas.
-    d.rounded_rectangle([L*0.285, L*0.775, L*0.715, L*0.845], radius=int(L*0.026),
-                        fill=(*CLARO, 145))
-    return img
+def separar_logotipo(img: Image.Image, fondo: tuple) -> Image.Image:
+    """Devuelve solo la marca, cortando por el hueco que la separa del texto.
+
+    Se busca la franja sin tinta en la mitad inferior. Si no la hay —porque
+    alguien cambie el arte de origen— se devuelve la imagen entera, que es peor
+    pero nunca corta por un sitio arbitrario.
+    """
+    h = img.size[1]
+    perfil = tinta_por_fila(img, fondo)
+
+    inicio, fin = int(h * 0.45), int(h * 0.85)
+    hueco_ini = None
+    mejor = None
+    for y in range(inicio, fin):
+        if perfil[y] <= 2:
+            if hueco_ini is None:
+                hueco_ini = y
+        elif hueco_ini is not None:
+            if mejor is None or (y - hueco_ini) > (mejor[1] - mejor[0]):
+                mejor = (hueco_ini, y)
+            hueco_ini = None
+
+    if mejor is None:
+        return img
+    corte = (mejor[0] + mejor[1]) // 2
+    return img.crop((0, 0, img.size[0], corte))
+
+
+def recortar(img: Image.Image, fondo: tuple, tolerancia: int = 12) -> Image.Image:
+    """Quita el margen uniforme que rodea al dibujo."""
+    w, h = img.size
+    px = img.load()
+
+    def vacia(coords):
+        return all(sum(abs(a - b) for a, b in zip(px[x, y][:3], fondo)) < tolerancia
+                   for x, y in coords)
+
+    arriba, abajo, izq, der = 0, h - 1, 0, w - 1
+    while arriba < abajo and vacia([(x, arriba) for x in range(0, w, 2)]):
+        arriba += 1
+    while abajo > arriba and vacia([(x, abajo) for x in range(0, w, 2)]):
+        abajo -= 1
+    while izq < der and vacia([(izq, y) for y in range(arriba, abajo, 2)]):
+        izq += 1
+    while der > izq and vacia([(der, y) for y in range(arriba, abajo, 2)]):
+        der -= 1
+    return img.crop((izq, arriba, der + 1, abajo + 1))
+
+
+def cuadrar(img: Image.Image, fondo: tuple) -> Image.Image:
+    """Centra el dibujo en un lienzo cuadrado, con algo de aire alrededor."""
+    w, h = img.size
+    lado = int(max(w, h) * (1 + 2 * AIRE))
+    lienzo = Image.new("RGBA", (lado, lado), (*fondo, 255))
+    lienzo.paste(img, ((lado - w) // 2, (lado - h) // 2), img)
+    return lienzo
+
+
+def escribir_ico(ruta: Path, imagenes: dict[int, Image.Image]) -> None:
+    """Escribe un .ico con arte distinto en cada resolucion.
+
+    Pillow solo sabe reescalar una unica imagen a varios tamanos, y aqui hace
+    falta que los pequenos lleven la marca sola. El formato es simple: una
+    cabecera, una entrada por tamano y los PNG concatenados.
+    """
+    tamanos = sorted(imagenes)
+    blobs = []
+    for t in tamanos:
+        b = BytesIO()
+        imagenes[t].resize((t, t), Image.LANCZOS).save(b, format="PNG")
+        blobs.append(b.getvalue())
+
+    cabecera = struct.pack("<HHH", 0, 1, len(tamanos))
+    desplazamiento = len(cabecera) + 16 * len(tamanos)
+    entradas = b""
+    for t, blob in zip(tamanos, blobs):
+        entradas += struct.pack(
+            "<BBBBHHII",
+            0 if t >= 256 else t,   # 0 significa 256
+            0 if t >= 256 else t,
+            0, 0, 1, 32, len(blob), desplazamiento,
+        )
+        desplazamiento += len(blob)
+
+    ruta.write_bytes(cabecera + entradas + b"".join(blobs))
+
+
+TAMANOS = {
+    "32x32.png": 32,
+    "128x128.png": 128,
+    "128x128@2x.png": 256,
+    "icon.png": 512,
+    "Square30x30Logo.png": 30,
+    "Square44x44Logo.png": 44,
+    "Square71x71Logo.png": 71,
+    "Square89x89Logo.png": 89,
+    "Square107x107Logo.png": 107,
+    "Square142x142Logo.png": 142,
+    "Square150x150Logo.png": 150,
+    "Square284x284Logo.png": 284,
+    "Square310x310Logo.png": 310,
+    "StoreLogo.png": 50,
+}
 
 
 def main() -> None:
+    if not ORIGEN.exists():
+        raise SystemExit(f"no existe {ORIGEN}")
+
     DESTINO.mkdir(parents=True, exist_ok=True)
-    base = marca()
+    original = Image.open(ORIGEN).convert("RGBA")
+    fondo = color_de_fondo(original)
 
-    salidas = {
-        "32x32.png": 32,
-        "128x128.png": 128,
-        "128x128@2x.png": 256,
-        "icon.png": 512,
-        "Square30x30Logo.png": 30,
-        "Square44x44Logo.png": 44,
-        "Square71x71Logo.png": 71,
-        "Square89x89Logo.png": 89,
-        "Square107x107Logo.png": 107,
-        "Square142x142Logo.png": 142,
-        "Square150x150Logo.png": 150,
-        "Square284x284Logo.png": 284,
-        "Square310x310Logo.png": 310,
-        "StoreLogo.png": 50,
-    }
-    for nombre, px in salidas.items():
-        base.resize((px, px), Image.LANCZOS).save(DESTINO / nombre)
+    completo = cuadrar(recortar(original, fondo), fondo)
+    marca = cuadrar(recortar(separar_logotipo(original, fondo), fondo), fondo)
 
-    # Windows quiere varias resoluciones dentro del mismo .ico.
-    base.resize((256, 256), Image.LANCZOS).save(
-        DESTINO / "icon.ico",
-        sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
-    )
-    print(f"{len(salidas) + 1} iconos escritos en {DESTINO}")
+    print(f"  origen {original.size[0]}x{original.size[1]}, fondo {fondo}")
+    print(f"  completo {completo.size[0]}px · marca sola {marca.size[0]}px")
+
+    for nombre, px in TAMANOS.items():
+        arte = marca if px < UMBRAL_MARCA else completo
+        arte.resize((px, px), Image.LANCZOS).save(DESTINO / nombre)
+
+    escribir_ico(DESTINO / "icon.ico", {
+        16: marca, 32: marca, 48: marca,
+        64: completo, 128: completo, 256: completo,
+    })
+
+    MARCA_UI.parent.mkdir(parents=True, exist_ok=True)
+    marca.resize((128, 128), Image.LANCZOS).save(MARCA_UI)
+
+    pequenos = [n for n, px in TAMANOS.items() if px < UMBRAL_MARCA]
+    print(f"  {len(TAMANOS) + 1} iconos escritos en {DESTINO}")
+    print(f"  usan solo la marca (el logotipo no se leeria): {', '.join(sorted(pequenos))}")
+    print(f"  marca para la cabecera de la ventana: {MARCA_UI.relative_to(RAIZ)}")
 
 
 if __name__ == "__main__":

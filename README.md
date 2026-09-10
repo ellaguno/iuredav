@@ -217,7 +217,7 @@ requiere una cuenta de Apple Developer y un certificado de firma de código.
 cargo test --workspace     # capacidades, traductor de errores, perfiles
 cargo build --workspace
 npx tsc --noEmit           # el frontend, en modo estricto
-python3 scripts/generar-iconos.py   # regenera los iconos desde el código
+python3 scripts/generar-iconos.py   # regenera los iconos desde assets/
 ```
 
 En Linux, la bandeja del sistema necesita un paquete que aún no está instalado:
@@ -225,6 +225,17 @@ En Linux, la bandeja del sistema necesita un paquete que aún no está instalado
 ```bash
 sudo apt install libayatana-appindicator3-dev
 ```
+
+## El icono
+
+Sale de `assets/iuredav_icon.png`. El script lo recorta, lo cuadra y lo reduce a
+todos los tamaños que piden los empaquetadores.
+
+Los tamaños por debajo de 64 px —bandeja del sistema, barra de tareas, pestaña—
+usan **solo la marca, sin el logotipo «WebDAVs»**: a 16 px ese texto es una mancha
+ilegible y además roba un tercio de la altura, con lo que la marca queda apretada.
+El `.ico` de Windows se escribe a mano para poder llevar arte distinto en cada
+resolución, que es algo que Pillow no sabe hacer.
 
 ## Aviso sobre datos
 
