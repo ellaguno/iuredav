@@ -121,9 +121,11 @@ export const api = {
   anclar: (id: string, carpeta: string) => invoke<void>("anclar", { id, carpeta }),
   desanclar: (id: string, ruta: string) => invoke<void>("desanclar", { id, ruta }),
 
+  /** Vuelve a leer el listado del servidor, sin esperar a que caduque la caché. */
+  refrescar: (id: string) => invoke<void>("refrescar", { id, ruta: "" }),
+
   autoarranque: () => invoke<boolean>("autoarranque"),
   fijarAutoarranque: (activo: boolean) => invoke<void>("fijar_autoarranque", { activo }),
-  salir: () => invoke<void>("salir"),
 };
 
 /** Un verbo solo cuenta como disponible si se comprobo que funciona. */

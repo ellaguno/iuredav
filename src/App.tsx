@@ -294,9 +294,27 @@ export default function App() {
                 </div>
 
                 {c.montado && (
-                  <button className="btn" onClick={() => void openPath(c.punto_montaje)}>
-                    Abrir carpeta
-                  </button>
+                  <>
+                    <button
+                      className="btn"
+                      title="Vuelve a leer el listado del servidor. Los cambios hechos desde Iurefficient tardan unos minutos en aparecer solos."
+                      onClick={async () => {
+                        setOcupado(c.id);
+                        try {
+                          await api.refrescar(c.id);
+                        } catch (e) {
+                          setError(String(e));
+                        } finally {
+                          setOcupado(null);
+                        }
+                      }}
+                    >
+                      Actualizar
+                    </button>
+                    <button className="btn" onClick={() => void openPath(c.punto_montaje)}>
+                      Abrir carpeta
+                    </button>
+                  </>
                 )}
                 <button
                   className={`btn ${c.montado ? "" : "principal"}`}

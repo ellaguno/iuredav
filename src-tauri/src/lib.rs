@@ -294,8 +294,11 @@ async fn desmontar_perfil(estado: &State<'_, Estado>, id: &str) -> Resp<()> {
     Ok(())
 }
 
-/// Olvida la cache de directorios: el boton "Actualizar". Hace falta porque el
-/// proveedor no notifica cambios y se monta con `--poll-interval 0`.
+/// Olvida la caché de directorios: es el botón «Actualizar» de la interfaz.
+///
+/// Hace falta porque el proveedor no notifica cambios, así que se monta con
+/// `--poll-interval 0`: sin esto, un documento subido desde Iurefficient tarda
+/// hasta `--dir-cache-time` en aparecer en la unidad.
 #[tauri::command]
 async fn refrescar(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<()> {
     let guard = estado.rclone.lock().await;
@@ -303,34 +306,6 @@ async fn refrescar(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<
     rc.refrescar(&id, &ruta).await.map_err(texto)
 }
 
-#[tauri::command]
-async fn estadisticas(estado: State<'_, Estado>) -> Resp<serde_json::Value> {
-    let guard = estado.rclone.lock().await;
-    match guard.as_ref() {
-        Some(rc) => rc.estadisticas().await.map_err(texto),
-        None => Ok(serde_json::json!({})),
-    }
-}
-
-/// Lista una carpeta del servidor sin pasar por el punto de montaje: es lo que
-/// alimenta el explorador integrado.
-#[tauri::command]
-async fn listar_remoto(
-    estado: State<'_, Estado>,
-    id: String,
-    ruta: String,
-) -> Resp<serde_json::Value> {
-    let guard = estado.rclone.lock().await;
-    let rc = guard.as_ref().ok_or("no hay ninguna conexión activa")?;
-    rc.llamar(
-        "operations/list",
-        serde_json::json!({ "fs": format!("{id}:"), "remote": ruta }),
-    )
-    .await
-    .map_err(texto)
-}
-
-/// `None` si esta maquina puede montar. Si no, que falta y como conseguirlo.
 #[tauri::command]
 fn comprobar_sistema() -> Option<Requisito> {
     plataforma::comprobar().err()
@@ -483,13 +458,6 @@ fn calentar_en_segundo_plano(app: AppHandle, conexion: String, punto: String, ca
     });
 }
 
-/// Terminar desde la interfaz. Desmonta antes, igual que "Salir" en la bandeja.
-#[tauri::command]
-async fn salir(app: AppHandle) {
-    apagar_todo(&app).await;
-    app.exit(0);
-}
-
 #[tauri::command]
 fn punto_sugerido(id: String) -> String {
     perfiles::punto_por_defecto(&id)
@@ -541,14 +509,11 @@ pub fn run() {
             montar,
             desmontar,
             refrescar,
-            estadisticas,
-            listar_remoto,
             punto_sugerido,
             comprobar_sistema,
             nombre_destino,
             cambiar_modo,
             listar_presets,
-            salir,
             autoarranque,
             fijar_autoarranque,
             anclar,
