@@ -107,6 +107,10 @@ export const api = {
   nombreDestino: () => invoke<string>("nombre_destino"),
   cambiarModo: (id: string, escritura: boolean) =>
     invoke<void>("cambiar_modo", { id, escritura }),
+
+  autoarranque: () => invoke<boolean>("autoarranque"),
+  fijarAutoarranque: (activo: boolean) => invoke<void>("fijar_autoarranque", { activo }),
+  salir: () => invoke<void>("salir"),
 };
 
 /** Un verbo solo cuenta como disponible si se comprobo que funciona. */

@@ -16,9 +16,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 iuredav-core = { path = "../crates/iuredav-core" }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-autostart = "2"
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

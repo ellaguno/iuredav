@@ -104,8 +104,8 @@ impl Rclone {
         };
 
         rc.esperar_a_que_responda().await?;
-        let v = rc.llamar("core/versión", json!({})).await?;
-        info!(version = ?v.get("versión"), "sidecar rclone listo");
+        let v = rc.llamar("core/version", json!({})).await?;
+        info!(version = ?v.get("version"), "sidecar rclone listo");
 
         Ok((rc, rx))
     }
@@ -390,6 +390,30 @@ mod tests {
             e.contains("WinFsp"),
             "el error debería orientar sobre la causa: {e}"
         );
+    }
+
+    /// Los nombres de metodo de la API de rclone son identificadores, no prosa.
+    /// Un pase de correccion ortografica sobre el codigo convirtio una vez
+    /// "core/version" en "core/version" con tilde, y rclone respondio 404. Esta
+    /// prueba lo impide: lo que tiene forma de metodo tiene que ser ASCII.
+    #[test]
+    fn los_metodos_de_la_api_son_ascii() {
+        let fuente = include_str!("rclone.rs");
+        for linea in fuente.lines() {
+            if linea.trim_start().starts_with("//") {
+                continue;
+            }
+            for trozo in linea.split('"') {
+                let parece_metodo = trozo.contains('/')
+                    && !trozo.contains(' ')
+                    && !trozo.contains("://")
+                    && trozo.len() < 30;
+                assert!(
+                    !parece_metodo || trozo.is_ascii(),
+                    "un metodo de la API de rclone dejo de ser ASCII: {trozo:?}"
+                );
+            }
+        }
     }
 
     #[test]

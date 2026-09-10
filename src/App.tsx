@@ -35,6 +35,7 @@ export default function App() {
   const [falta, setFalta] = useState<Requisito | null>(null);
   const [destino, setDestino] = useState("Carpeta");
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [auto, setAuto] = useState(false);
 
   const recargar = useCallback(async () => {
     try {
@@ -52,6 +53,7 @@ export default function App() {
     api.comprobarSistema().then(setFalta).catch(() => {});
     api.nombreDestino().then(setDestino).catch(() => {});
     api.listarPresets().then(setPresets).catch(() => {});
+    api.autoarranque().then(setAuto).catch(() => {});
   }, []);
 
   // Los limites del servidor llegan traducidos desde Rust y se muestran tal cual.
@@ -216,6 +218,34 @@ export default function App() {
               >
                 Añadir mi primera conexión
               </button>
+            </div>
+          )}
+
+          {conexiones !== null && conexiones.length > 0 && (
+            <div className="tarjeta preferencia">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={auto}
+                  onChange={async (e) => {
+                    const v = e.target.checked;
+                    setAuto(v);
+                    try {
+                      await api.fijarAutoarranque(v);
+                    } catch (err) {
+                      setAuto(!v);
+                      setError(String(err));
+                    }
+                  }}
+                />
+                <span>
+                  <strong>Arrancar al iniciar sesión</strong>
+                  <em>
+                    IureDav se queda en la bandeja del sistema. Cerrar la ventana no lo
+                    detiene ni desmonta nada; para eso está «Salir» en la bandeja.
+                  </em>
+                </span>
+              </label>
             </div>
           )}
 

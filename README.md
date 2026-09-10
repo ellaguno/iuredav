@@ -9,9 +9,9 @@ A diferencia de otros clientes, IureDav **no se cree lo que el servidor anuncia*
 prueba cada operación, mide lo que funciona de verdad, y de ahí deduce cómo montar
 la unidad y qué explicarte cuando algo no se puede hacer.
 
-> **Estado: en desarrollo.** Funcionan la sonda, el montaje, la interfaz gráfica
-> y los instaladores de las tres plataformas. Falta la bandeja del sistema y el
-> anclado de carpetas para trabajar sin conexión.
+> **Estado: en desarrollo.** Funcionan la sonda, el montaje, la interfaz gráfica,
+> la bandeja del sistema, el autoarranque y los instaladores de las tres
+> plataformas. Falta el anclado de carpetas para trabajar sin conexión.
 >
 > Probado de verdad solo en Linux. Windows y macOS **compilan y se empaquetan en
 > integración continua**, pero nadie los ha ejecutado todavía en una máquina real.
@@ -157,6 +157,16 @@ La interfaz traduce los límites del servidor a algo accionable: en vez de
 carpetas ni mover o renombrar; esas operaciones se hacen desde Iurefficient»**.
 La pantalla *Ver qué sabe hacer este servidor* enfrenta, fila a fila, lo que el
 servidor anuncia con lo que cumple.
+
+## Vive en la bandeja
+
+Como cualquier agente de este tipo, lo normal es montar al arrancar el equipo y no
+volver a abrir la ventana en semanas. Por eso **cerrar la ventana no desmonta ni
+detiene el programa**: solo la esconde. Para terminar de verdad está *Salir* en el
+menú de la bandeja, que desmonta antes.
+
+Si el escritorio no ofrece bandeja, IureDav lo detecta y cerrar la ventana sí
+termina el programa — de lo contrario no habría forma de salir.
 
 ## Construir los instaladores
 

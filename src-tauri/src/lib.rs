@@ -5,7 +5,10 @@
 //! linea de ordenes. Aqui solo se expone al frontend y se mantiene vivo el
 //! sidecar de rclone mientras la ventana esta abierta.
 
+mod bandeja;
+
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use iuredav_core::caps::{opciones_de_montaje, MountOptions, ServerCapabilities};
 use iuredav_core::errors::MensajeAmistoso;
@@ -25,7 +28,10 @@ use tokio::sync::Mutex;
 pub struct Estado {
     rclone: Mutex<Option<Rclone>>,
     /// id de perfil -> punto de montaje.
-    montados: Mutex<HashMap<String, String>>,
+    pub montados: Mutex<HashMap<String, String>>,
+    /// Si hay icono de bandeja. Decide que hace cerrar la ventana: si no lo hay,
+    /// esconderla dejaria al usuario sin ninguna forma de salir del programa.
+    pub hay_bandeja: AtomicBool,
 }
 
 /// Los errores cruzan a JavaScript como texto: el frontend los ensena tal cual,
@@ -153,10 +159,47 @@ async fn asegurar_sidecar(app: &AppHandle, estado: &State<'_, Estado>) -> Result
     Ok(())
 }
 
+/// Monta o desmonta segun el estado actual. Lo usa el menu de la bandeja.
+pub async fn alternar_montaje(app: &AppHandle, id: &str) -> Result<(), String> {
+    let estado = app.state::<Estado>();
+    let montado = estado.montados.lock().await.contains_key(id);
+    if montado {
+        desmontar_perfil(&estado, id).await
+    } else {
+        let escritura = perfiles::buscar(id)
+            .map_err(texto)?
+            .is_some_and(|p| p.escritura);
+        montar_perfil(app, &estado, id.to_string(), escritura)
+            .await
+            .map(|_| ())
+    }
+}
+
+/// Desmonta todo y apaga el sidecar. Se llama al salir.
+pub async fn apagar_todo(app: &AppHandle) {
+    let estado = app.state::<Estado>();
+    let rclone = estado.rclone.lock().await.take();
+    if let Some(rc) = rclone {
+        let _ = rc.apagar().await;
+    }
+    estado.montados.lock().await.clear();
+}
+
 #[tauri::command]
 async fn montar(
     app: AppHandle,
     estado: State<'_, Estado>,
+    id: String,
+    escritura: bool,
+) -> Resp<String> {
+    let punto = montar_perfil(&app, &estado, id, escritura).await?;
+    bandeja::refrescar(&app).await;
+    Ok(punto)
+}
+
+async fn montar_perfil(
+    app: &AppHandle,
+    estado: &State<'_, Estado>,
     id: String,
     escritura: bool,
 ) -> Resp<String> {
@@ -199,7 +242,7 @@ async fn montar(
     let opciones = opciones_de_montaje(&caps, &opts);
     perfiles::preparar_punto(&perfil.punto_montaje).map_err(texto)?;
 
-    asegurar_sidecar(&app, &estado).await?;
+    asegurar_sidecar(app, estado).await?;
     let guard = estado.rclone.lock().await;
     let rc = guard
         .as_ref()
@@ -218,12 +261,18 @@ async fn montar(
 }
 
 #[tauri::command]
-async fn desmontar(estado: State<'_, Estado>, id: String) -> Resp<()> {
+async fn desmontar(app: AppHandle, estado: State<'_, Estado>, id: String) -> Resp<()> {
+    let r = desmontar_perfil(&estado, &id).await;
+    bandeja::refrescar(&app).await;
+    r
+}
+
+async fn desmontar_perfil(estado: &State<'_, Estado>, id: &str) -> Resp<()> {
     let punto = estado
         .montados
         .lock()
         .await
-        .remove(&id)
+        .remove(id)
         .ok_or("esa conexión no esta montada")?;
 
     let guard = estado.rclone.lock().await;
@@ -292,6 +341,32 @@ async fn cambiar_modo(id: String, escritura: bool) -> Resp<()> {
     perfiles::upsert(p).map_err(texto)
 }
 
+/// Si IureDav arranca al iniciar sesion. Se expone desde Rust y no desde el
+/// complemento en JavaScript para no anadir permisos ni dependencias al frontend.
+#[tauri::command]
+fn autoarranque(app: AppHandle) -> Resp<bool> {
+    use tauri_plugin_autostart::ManagerExt;
+    app.autolaunch().is_enabled().map_err(texto)
+}
+
+#[tauri::command]
+fn fijar_autoarranque(app: AppHandle, activo: bool) -> Resp<()> {
+    use tauri_plugin_autostart::ManagerExt;
+    let al = app.autolaunch();
+    if activo {
+        al.enable().map_err(texto)
+    } else {
+        al.disable().map_err(texto)
+    }
+}
+
+/// Terminar desde la interfaz. Desmonta antes, igual que "Salir" en la bandeja.
+#[tauri::command]
+async fn salir(app: AppHandle) {
+    apagar_todo(&app).await;
+    app.exit(0);
+}
+
 #[tauri::command]
 fn punto_sugerido(id: String) -> String {
     perfiles::punto_por_defecto(&id)
@@ -315,7 +390,26 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .manage(Estado::default())
+        .setup(|app| {
+            // Si el escritorio no ofrece bandeja, la aplicación sigue siendo
+            // perfectamente usable desde su ventana: no es motivo para no arrancar.
+            match bandeja::instalar(app.handle()) {
+                Ok(()) => app
+                    .state::<Estado>()
+                    .hay_bandeja
+                    .store(true, Ordering::Relaxed),
+                Err(e) => tracing::warn!(
+                    %e,
+                    "sin icono de bandeja; cerrar la ventana terminara el programa"
+                ),
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             listar_conexiones,
             probar,
@@ -331,17 +425,32 @@ pub fn run() {
             nombre_destino,
             cambiar_modo,
             listar_presets,
+            salir,
+            autoarranque,
+            fijar_autoarranque,
         ])
         .on_window_event(|ventana, evento| {
-            // Cerrar la ventana tiene que desmontar: dejar un punto de montaje
-            // colgado obliga al usuario a arreglarlo desde una terminal, que es
-            // justo lo que esta aplicacion existe para evitar.
-            if let tauri::WindowEvent::Destroyed = evento {
-                let estado = ventana.state::<Estado>();
-                let rclone = estado.rclone.blocking_lock().take();
-                if let Some(rc) = rclone {
-                    tauri::async_runtime::block_on(async {
-                        let _ = rc.apagar().await;
+            // Cerrar la ventana esconde, no termina. Lo normal en esta aplicación es
+            // montar al arrancar el equipo y no volver a abrir la ventana en semanas;
+            // que cerrarla desmontara seria una sorpresa desagradable. Para terminar
+            // de verdad esta "Salir" en la bandeja, que si desmonta.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = evento {
+                let hay_bandeja = ventana
+                    .state::<Estado>()
+                    .hay_bandeja
+                    .load(Ordering::Relaxed);
+
+                if hay_bandeja {
+                    api.prevent_close();
+                    let _ = ventana.hide();
+                } else {
+                    // Sin bandeja no hay otra forma de volver, ni de salir: se cierra
+                    // de verdad, desmontando antes.
+                    api.prevent_close();
+                    let app = ventana.app_handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        apagar_todo(&app).await;
+                        app.exit(0);
                     });
                 }
             }

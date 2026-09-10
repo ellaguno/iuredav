@@ -144,6 +144,11 @@ table.caps .no { color: var(--tenue); }
 table.caps .mal { color: var(--rojo); font-weight: 600; }
 table.caps tr.discrepa { background: color-mix(in srgb, var(--ambar) 8%, transparent); }
 
+.preferencia label { display: flex; gap: 11px; align-items: flex-start; cursor: pointer; }
+.preferencia input { margin-top: 3px; flex: none; accent-color: var(--azul); }
+.preferencia strong { display: block; font-weight: 600; }
+.preferencia em { display: block; font-style: normal; color: var(--tenue); font-size: 12.5px; margin-top: 2px; }
+
 .vacio { text-align: center; padding: 56px 20px; color: var(--tenue); }
 .vacio h2 { font-size: 17px; margin-bottom: 6px; color: var(--texto); }
 .cargando { color: var(--tenue); padding: 20px 0; }
