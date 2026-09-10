@@ -211,6 +211,30 @@ Los paquetes de macOS y Windows van **sin firmar**. macOS avisará de que la
 aplicación no está identificada, y Windows mostrará SmartScreen. Firmarlos
 requiere una cuenta de Apple Developer y un certificado de firma de código.
 
+## Publicar una versión
+
+```bash
+python3 scripts/version.py            # ver la versión actual y que cuadre
+python3 scripts/version.py 0.2.0      # cambiarla en los tres ficheros
+# escribir la sección de 0.2.0 en CHANGELOG.md
+git commit -am "Versión 0.2.0"
+git tag v0.2.0 && git push --follow-tags
+```
+
+La etiqueta dispara la construcción para las tres plataformas y publica una
+release con los instaladores adjuntos y las notas sacadas del
+[CHANGELOG](CHANGELOG.md).
+
+La versión vive en tres ficheros —`Cargo.toml`, `package.json` y
+`tauri.conf.json`— porque cada herramienta tiene la suya. Si se separan sale un
+instalador que dice una versión y lleva otra: el nombre del fichero y las
+propiedades del MSI salen de `tauri.conf.json`, no del código. Por eso el CI
+comprueba que coincidan, y la publicación se detiene antes de construir nada si la
+etiqueta no cuadra con lo que dicen los ficheros.
+
+Los artefactos que deja cada ejecución del CI **caducan a los 14 días**; los de una
+release no caducan.
+
 ## Desarrollo
 
 ```bash

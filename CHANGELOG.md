@@ -1,0 +1,57 @@
+# Registro de cambios
+
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y las
+versiones, [SemVer](https://semver.org/lang/es/).
+
+Para publicar una versión:
+
+```bash
+python3 scripts/version.py 0.2.0     # cambia la versión en los tres ficheros
+# escribe aquí la sección de 0.2.0
+git commit -am "Versión 0.2.0"
+git tag v0.2.0 && git push --follow-tags
+```
+
+La etiqueta dispara la construcción para las tres plataformas y publica una release
+con los instaladores. Si la etiqueta y la versión del código no coinciden, el
+proceso se detiene antes de construir nada.
+
+## [Sin publicar]
+
+## [0.1.0]
+
+Primera versión. Monta un servidor WebDAV como una unidad del equipo, con un perfil
+optimizado para Iurefficient.
+
+### Añadido
+
+- **Sonda de capacidades.** Descubre lo que el servidor sabe hacer de verdad
+  probando cada operación, en vez de fiarse de lo que anuncia en `Allow:`. De esa
+  medición salen las opciones de montaje: si el servidor no cumple lo que promete,
+  se le retiran esas capacidades a rclone para que no planifique con ellas y falle
+  a mitad.
+- **Montaje** con caché local. Solo lectura salvo que la sonda confirme la
+  escritura y el usuario la active a mano.
+- **Interfaz en español** que traduce los límites del servidor a algo accionable:
+  «no permite eliminar documentos, crear carpetas ni mover o renombrar», en vez de
+  códigos y verbos HTTP.
+- **Bandeja del sistema** con montaje por conexión, y autoarranque. Cerrar la
+  ventana no desmonta.
+- **Carpetas disponibles sin conexión.**
+- **Dos tipos de servidor**: Iurefficient y WebDAV genérico (Nextcloud, ownCloud,
+  Synology, Seafile…), con autenticación básica sobre HTTPS.
+- **Instaladores** para Linux (`.deb`, `.rpm`, `.AppImage`), macOS (un `.dmg`
+  universal) y Windows (`.msi`, `.exe`), con rclone 1.75.1 dentro.
+
+### Se sabe que
+
+- macOS y Windows se construyen y empaquetan en integración continua, pero
+  **nadie los ha ejecutado todavía** en una máquina real. Linux sí está probado de
+  punta a punta.
+- Los paquetes de macOS y Windows van **sin firmar**.
+- Las carpetas sin conexión son una aproximación: rclone no tiene un «anclar»
+  nativo, y si la caché se llena el desalojo por antigüedad puede expulsar
+  contenido marcado.
+
+[Sin publicar]: https://github.com/ellaguno/iuredav/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ellaguno/iuredav/releases/tag/v0.1.0

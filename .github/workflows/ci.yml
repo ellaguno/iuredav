@@ -37,6 +37,12 @@ jobs:
       - name: Descargar rclone
         run: python3 scripts/descargar-rclone.py
 
+      # Si estas tres se separan, sale un instalador que dice una version y lleva
+      # otra. El nombre del fichero y las propiedades del MSI salen de
+      # tauri.conf.json, no del codigo.
+      - name: La version coincide en los tres ficheros
+        run: python3 scripts/version.py
+
       - name: Tests de Rust
         run: cargo test --workspace --all-features
 
