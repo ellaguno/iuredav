@@ -140,7 +140,13 @@ impl Rclone {
 
     /// Crea (o actualiza) el remoto WebDAV en caliente, sin tocar el fichero de
     /// configuracion de rclone ni pasar la contrasena por `argv`.
-    pub async fn crear_remoto(&self, nombre: &str, url: &str, usuario: &str, password: &str) -> Result<()> {
+    pub async fn crear_remoto(
+        &self,
+        nombre: &str,
+        url: &str,
+        usuario: &str,
+        password: &str,
+    ) -> Result<()> {
         self.llamar(
             "config/create",
             json!({
@@ -166,7 +172,7 @@ impl Rclone {
         let mut peticion = serde_json::Map::new();
         peticion.insert("fs".into(), json!(format!("{remoto}:")));
         peticion.insert("mountPoint".into(), json!(punto));
-        peticion.insert("mountType".into(), json!(tipo_de_montaje()));
+        peticion.insert("mountType".into(), json!(self.tipo_de_montaje().await?));
         peticion.insert("mountOpt".into(), Value::Object(o.mount.clone()));
         peticion.insert("vfsOpt".into(), Value::Object(o.vfs.clone()));
         // `_config` es como la API RC acepta las opciones globales del bloque `main`;
@@ -179,8 +185,28 @@ impl Rclone {
         Ok(())
     }
 
+    /// Mecanismos de montaje que este rclone dice tener.
+    pub async fn tipos_de_montaje(&self) -> Result<Vec<String>> {
+        let v = self.llamar("mount/types", json!({})).await?;
+        Ok(v.get("mountTypes")
+            .and_then(|t| t.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    async fn tipo_de_montaje(&self) -> Result<String> {
+        let tipo = elegir_tipo(&self.tipos_de_montaje().await?)?;
+        debug!(tipo, "mecanismo de montaje elegido");
+        Ok(tipo)
+    }
+
     pub async fn desmontar(&self, punto: &str) -> Result<()> {
-        self.llamar("mount/unmount", json!({ "mountPoint": punto })).await?;
+        self.llamar("mount/unmount", json!({ "mountPoint": punto }))
+            .await?;
         Ok(())
     }
 
@@ -196,7 +222,11 @@ impl Rclone {
     /// Hace falta porque el proveedor no notifica cambios y montamos con
     /// `--poll-interval 0`.
     pub async fn refrescar(&self, remoto: &str, ruta: &str) -> Result<()> {
-        self.llamar("vfs/forget", json!({ "fs": format!("{remoto}:"), "dir": ruta })).await?;
+        self.llamar(
+            "vfs/forget",
+            json!({ "fs": format!("{remoto}:"), "dir": ruta }),
+        )
+        .await?;
         Ok(())
     }
 
@@ -210,19 +240,50 @@ impl Rclone {
     }
 }
 
-/// En macOS se monta por NFS, no por FUSE: rclone levanta un servidor NFS local y
-/// el sistema lo monta. Eso evita pedirle al usuario que instale macFUSE, que es
-/// la mayor friccion de instalacion de este tipo de aplicaciones.
-fn tipo_de_montaje() -> &'static str {
+/// Orden de preferencia de mecanismos de montaje para esta plataforma.
+///
+/// En macOS se prefiere `nfsmount`: rclone levanta un servidor NFS local y el
+/// sistema lo monta, lo que evita pedirle al usuario que instale macFUSE. Esa es
+/// la mayor friccion de instalacion de este tipo de aplicaciones, y quitarla vale
+/// mas que cualquier otra cosa que podamos hacer en el instalador.
+fn preferencias() -> &'static [&'static str] {
     if cfg!(target_os = "macos") {
-        "nfs"
+        &["nfsmount", "mount", "cmount", "mount2"]
+    } else if cfg!(target_os = "windows") {
+        &["mount", "cmount"] // ambos sobre WinFsp
     } else {
-        ""  // vacio = el predeterminado de la plataforma (FUSE en Linux, WinFsp en Windows)
+        &["mount", "mount2", "nfsmount"]
     }
 }
 
+/// Elige el primer mecanismo preferido que rclone diga tener.
+///
+/// No se codifica un nombre fijo porque los nombres cambian entre versiones: en
+/// rclone 1.60 solo existen `mount` y `mount2`; `nfsmount` aparece despues. Un
+/// nombre inventado hace que `mount/mount` falle con un error que no dice nada.
+fn elegir_tipo(disponibles: &[String]) -> Result<String> {
+    for preferido in preferencias() {
+        if disponibles.iter().any(|d| d == preferido) {
+            return Ok((*preferido).to_string());
+        }
+    }
+    bail!(
+        "este rclone no ofrece ningun mecanismo de montaje utilizable (tiene: {}). \
+         En Windows suele significar que falta WinFsp; en macOS, que el binario esta incompleto",
+        if disponibles.is_empty() {
+            "ninguno".to_string()
+        } else {
+            disponibles.join(", ")
+        }
+    )
+}
+
 fn puerto_libre() -> Option<u16> {
-    TcpListener::bind("127.0.0.1:0").ok()?.local_addr().ok().map(|a| a.port())
+    TcpListener::bind("127.0.0.1:0")
+        .ok()?
+        .local_addr()
+        .ok()
+        .map(|a| a.port())
 }
 
 /// Credencial de un solo uso para la API RC local, del generador del sistema.
@@ -235,17 +296,47 @@ fn token_aleatorio() -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
-/// Ruta al rclone empaquetado; si no esta, el del sistema (util en desarrollo).
+/// Ruta al rclone empaquetado.
+///
+/// Tauri coloca los binarios externos junto al ejecutable principal, ya sin el
+/// sufijo del triple. En desarrollo se busca ademas el descargado por
+/// `scripts/descargar-rclone.py`, que si lo lleva.
 pub fn ruta_binario() -> String {
-    let nombre = if cfg!(windows) { "rclone.exe" } else { "rclone" };
-    if let Ok(dir) = std::env::current_exe() {
-        if let Some(d) = dir.parent() {
-            let candidato = d.join("resources").join(nombre);
-            if candidato.exists() {
-                return candidato.to_string_lossy().into_owned();
+    let nombre = if cfg!(windows) {
+        "rclone.exe"
+    } else {
+        "rclone"
+    };
+
+    // Valvula de escape para pruebas y para quien quiera usar su propio rclone.
+    if let Ok(p) = std::env::var("IUREDAV_RCLONE") {
+        if !p.is_empty() {
+            return p;
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(d) = exe.parent() {
+            for candidato in [d.join(nombre), d.join("resources").join(nombre)] {
+                if candidato.exists() {
+                    return candidato.to_string_lossy().into_owned();
+                }
             }
         }
     }
+
+    // Desarrollo: el binario descargado, con el triple en el nombre.
+    let triple = env!("IUREDAV_TARGET");
+    if !triple.is_empty() {
+        let sufijo = if cfg!(windows) { ".exe" } else { "" };
+        let dev = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../src-tauri/binaries")
+            .join(format!("iuredav-rclone-{triple}{sufijo}"));
+        if dev.exists() {
+            return dev.to_string_lossy().into_owned();
+        }
+    }
+
     warn!("usando el rclone del sistema; en produccion debe ir empaquetado");
     nombre.to_string()
 }
@@ -254,6 +345,35 @@ pub fn ruta_binario() -> String {
 mod tests {
     use super::*;
     use crate::caps::{opciones_de_montaje, MountOptions, ServerCapabilities, Verdict};
+
+    #[test]
+    fn elige_el_mecanismo_preferido_de_los_que_hay() {
+        // rclone 1.75 en macOS: nfsmount evita tener que instalar macFUSE.
+        let modernos: Vec<String> = ["mount", "mount2", "nfsmount"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let elegido = elegir_tipo(&modernos).unwrap();
+        if cfg!(target_os = "macos") {
+            assert_eq!(elegido, "nfsmount");
+        } else {
+            assert_eq!(elegido, "mount");
+        }
+
+        // rclone 1.60 no conoce nfsmount: hay que caer en algo que si exista, no
+        // pedir un nombre inventado.
+        let antiguos: Vec<String> = ["mount", "mount2"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(elegir_tipo(&antiguos).unwrap(), "mount");
+    }
+
+    #[test]
+    fn sin_ningun_mecanismo_el_error_orienta() {
+        let e = elegir_tipo(&[]).unwrap_err().to_string();
+        assert!(
+            e.contains("WinFsp"),
+            "el error deberia orientar sobre la causa: {e}"
+        );
+    }
 
     #[test]
     fn los_tokens_no_se_repiten() {
@@ -269,8 +389,14 @@ mod tests {
         let fuente = include_str!("rclone.rs");
         let arranque = &fuente[fuente.find("pub async fn arrancar").unwrap()
             ..fuente.find("// El log de rclone sale por stderr").unwrap()];
-        assert!(!arranque.contains(r#".arg("--rc-user")"#), "--rc-user volvio a argv");
-        assert!(!arranque.contains(r#".arg("--rc-pass")"#), "--rc-pass volvio a argv");
+        assert!(
+            !arranque.contains(r#".arg("--rc-user")"#),
+            "--rc-user volvio a argv"
+        );
+        assert!(
+            !arranque.contains(r#".arg("--rc-pass")"#),
+            "--rc-pass volvio a argv"
+        );
         assert!(arranque.contains(r#".env("RCLONE_RC_USER""#));
         assert!(arranque.contains(r#".env("RCLONE_RC_PASS""#));
     }

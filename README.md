@@ -1,11 +1,16 @@
 # IureDav
 
+[![CI](https://github.com/ellaguno/iuredav/actions/workflows/ci.yml/badge.svg)](https://github.com/ellaguno/iuredav/actions/workflows/ci.yml)
+
 Monta tu instancia de Iurefficient como una unidad de tu equipo, al estilo de
 Mountain Duck. Linux, macOS y Windows.
 
-> **Estado: en desarrollo (Fase 2).** Funcionan la sonda, el montaje de solo
-> lectura y la interfaz gráfica. Falta la bandeja del sistema, el anclado de
-> carpetas sin conexión y los instaladores de macOS y Windows.
+> **Estado: en desarrollo.** Funcionan la sonda, el montaje, la interfaz gráfica
+> y los instaladores de las tres plataformas. Falta la bandeja del sistema y el
+> anclado de carpetas para trabajar sin conexión.
+>
+> Probado de verdad solo en Linux. Windows y macOS **compilan y se empaquetan en
+> integración continua**, pero nadie los ha ejecutado todavía en una máquina real.
 
 ## Por qué existe la sonda
 
@@ -106,11 +111,25 @@ van en nanosegundos, `CacheMode` es un entero y la clave del trozo de lectura es
 
 ### Cómo se monta en cada sistema
 
-| Sistema | Mecanismo | Requisito |
-|---|---|---|
-| Linux | FUSE3 | paquete `fuse3` |
-| macOS | servidor NFS local de rclone | **ninguno** — no hace falta macFUSE |
-| Windows | WinFsp | lo instala el propio instalador |
+| Sistema | Mecanismo | Hace falta instalar | Dónde aparece |
+|---|---|---|---|
+| Linux | FUSE 3 | `fuse3` (lo pide el `.deb`) | `~/Iurefficient` |
+| macOS | servidor NFS local de rclone | **nada** | `~/Iurefficient` |
+| Windows | WinFsp | [WinFsp](https://winfsp.dev/rel/) | unidad `I:` |
+
+En macOS no hace falta macFUSE. rclone levanta un servidor NFS local y el sistema
+lo monta, así que nadie tiene que instalar una extensión del núcleo ni autorizarla
+en Preferencias del Sistema — que es la mayor fricción de instalación de este tipo
+de programas.
+
+El mecanismo **no está escrito a mano**: al montar se le pregunta a rclone qué
+mecanismos tiene (`mount/types`) y se elige el primero de una lista de preferencia
+por plataforma. Los nombres cambian entre versiones — `nfsmount` no existe en
+rclone 1.60 y sí en 1.75— y pedir uno que no está da un error que no orienta.
+
+IureDav comprueba estos requisitos **antes** de intentar montar, y si falta alguno
+explica cuál y cómo conseguirlo, en vez de dejar que rclone falle con un mensaje
+del sistema.
 
 ## La aplicación de escritorio
 
@@ -124,6 +143,28 @@ La interfaz traduce los límites del servidor a algo accionable: en vez de
 carpetas ni mover o renombrar; esas operaciones se hacen desde Iurefficient»**.
 La pantalla *Ver qué sabe hacer este servidor* enfrenta, fila a fila, lo que el
 servidor anuncia con lo que cumple.
+
+## Construir los instaladores
+
+```bash
+python3 scripts/descargar-rclone.py    # el rclone que se empaqueta
+npm ci
+npm run tauri build
+```
+
+Produce `.deb`, `.rpm` y `.AppImage` en Linux; `.dmg` en macOS; `.msi` y `.exe` en
+Windows. La integración continua los construye para las cuatro combinaciones
+(Linux x86-64, macOS Intel, macOS Apple Silicon, Windows x86-64) y los deja como
+artefactos de cada ejecución.
+
+rclone viaja dentro del paquete con el nombre **`iuredav-rclone`**, no `rclone`.
+Los binarios externos acaban en `/usr/bin`, y ahí `rclone` a secas chocaría con el
+paquete de la distribución: dpkg se niega a sobrescribir un fichero de otro
+paquete, así que la instalación fallaría en cualquier equipo que ya lo tenga.
+
+Los paquetes de macOS y Windows van **sin firmar**. macOS avisará de que la
+aplicación no está identificada, y Windows mostrará SmartScreen. Firmarlos
+requiere una cuenta de Apple Developer y un certificado de firma de código.
 
 ## Desarrollo
 

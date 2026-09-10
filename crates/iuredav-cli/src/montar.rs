@@ -6,6 +6,7 @@ use clap::Args as ClapArgs;
 use iuredav_core::caps::{opciones_de_montaje, MountOptions};
 use iuredav_core::errors::Severidad;
 use iuredav_core::perfiles::{self, Perfil};
+use iuredav_core::plataforma;
 use iuredav_core::probe::Probe;
 use iuredav_core::rclone::{ruta_binario, Rclone};
 
@@ -35,8 +36,12 @@ pub struct Args {
 }
 
 pub async fn ejecutar(args: Args) -> Result<()> {
-    let mut perfil = perfiles::buscar(&args.perfil)?
-        .with_context(|| format!("no existe el perfil '{}'. Mira `iuredav perfiles`", args.perfil))?;
+    let mut perfil = perfiles::buscar(&args.perfil)?.with_context(|| {
+        format!(
+            "no existe el perfil '{}'. Mira `iuredav perfiles`",
+            args.perfil
+        )
+    })?;
 
     if let Some(p) = args.en {
         perfil.punto_montaje = p;
@@ -64,24 +69,43 @@ pub async fn ejecutar(args: Args) -> Result<()> {
     if quiere_escribir && !caps.real.put_crear.usable() {
         println!("Aviso: pediste modo edicion, pero la sonda no ha confirmado que el");
         println!("       servidor acepte PUT. Se monta en solo lectura.");
-        println!("       Para comprobarlo:  iuredav probe --url {} --user {} --escritura",
-            perfil.url, perfil.usuario);
+        println!(
+            "       Para comprobarlo:  iuredav probe --url {} --user {} --escritura",
+            perfil.url, perfil.usuario
+        );
     }
 
-    let opts = MountOptions { escritura: quiere_escribir, ..Default::default() };
+    let opts = MountOptions {
+        escritura: quiere_escribir,
+        ..Default::default()
+    };
     let opciones = opciones_de_montaje(&caps, &opts);
     let solo_lectura = opciones.vfs.get("ReadOnly") == Some(&serde_json::json!(true));
+
+    if let Err(r) = plataforma::comprobar() {
+        println!("Falta {} para poder montar.", r.que_falta);
+        println!("  {}", r.por_que);
+        println!("  {}", r.como_instalar);
+        if let Some(u) = r.url {
+            println!("  {u}");
+        }
+        anyhow::bail!("requisito del sistema sin cumplir");
+    }
 
     perfiles::preparar_punto(&perfil.punto_montaje)?;
 
     let binario = args.rclone.unwrap_or_else(ruta_binario);
     let (rclone, mut avisos) = Rclone::arrancar(&binario).await?;
 
-    rclone.crear_remoto(&perfil.id, &perfil.url, &perfil.usuario, &password).await
+    rclone
+        .crear_remoto(&perfil.id, &perfil.url, &perfil.usuario, &password)
+        .await
         .context("no se pudo configurar el remoto en rclone")?;
 
     let punto = perfil.punto_montaje.to_string_lossy().to_string();
-    rclone.montar(&perfil.id, &punto, &opciones).await
+    rclone
+        .montar(&perfil.id, &punto, &opciones)
+        .await
         .with_context(|| format!("no se pudo montar en {punto}"))?;
 
     resumen(&perfil, &punto, solo_lectura, &caps);
@@ -95,13 +119,18 @@ pub async fn ejecutar(args: Args) -> Result<()> {
                 Severidad::Error => "ERROR ",
             };
             match &m.ruta {
-                Some(r) => println!("\n[{etiqueta}] {} — {}\n         {}", m.titulo, r, m.detalle),
+                Some(r) => println!(
+                    "\n[{etiqueta}] {} — {}\n         {}",
+                    m.titulo, r, m.detalle
+                ),
                 None => println!("\n[{etiqueta}] {}\n         {}", m.titulo, m.detalle),
             }
         }
     });
 
-    tokio::signal::ctrl_c().await.context("fallo al esperar Ctrl+C")?;
+    tokio::signal::ctrl_c()
+        .await
+        .context("fallo al esperar Ctrl+C")?;
     println!("\nDesmontando...");
 
     if let Err(e) = rclone.desmontar(&punto).await {
@@ -112,14 +141,29 @@ pub async fn ejecutar(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn resumen(perfil: &Perfil, punto: &str, solo_lectura: bool, caps: &iuredav_core::ServerCapabilities) {
+fn resumen(
+    perfil: &Perfil,
+    punto: &str,
+    solo_lectura: bool,
+    caps: &iuredav_core::ServerCapabilities,
+) {
     println!("\n  {} montado en {punto}", perfil.nombre);
-    println!("  Modo: {}", if solo_lectura { "solo lectura" } else { "EDICION" });
+    println!(
+        "  Modo: {}",
+        if solo_lectura {
+            "solo lectura"
+        } else {
+            "EDICION"
+        }
+    );
 
     let d = caps.discrepancias();
     if !d.is_empty() {
         let verbos: Vec<_> = d.iter().map(|x| x.verbo.as_str()).collect();
-        println!("\n  Este servidor anuncia {} pero no los cumple,", verbos.join(", "));
+        println!(
+            "\n  Este servidor anuncia {} pero no los cumple,",
+            verbos.join(", ")
+        );
         println!("  asi que se le han retirado a rclone para que no planifique con ellos.");
     }
     if !solo_lectura {

@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pruebas:
+    name: Pruebas
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libsoup-3.0-dev fuse3
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # rclone hace falta para compilar: Tauri espera el binario externo.
+      - name: Descargar rclone
+        run: python3 scripts/descargar-rclone.py
+
+      - name: Tests de Rust
+        run: cargo test --workspace --all-features
+
+      - name: TypeScript en modo estricto
+        run: npx tsc --noEmit
+
+      - name: Formato y clippy
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+
+      # La sonda contra el doble que imita al servidor real. Se comprueban las dos
+      # afirmaciones: que sin pedirlo no da por buenas las capacidades anunciadas,
+      # y que cuando las prueba detecta que el servidor miente.
+      - name: La sonda no se cree lo que el servidor anuncia
+        run: |
+          python3 tests/servidor-falso.py 8099 &
+          for i in $(seq 40); do curl -sf -o /dev/null http://127.0.0.1:8099/webdav/ && break || sleep 0.3; done
+          cargo build --quiet --bin iuredav
+
+          echo "-- solo lectura: no debe tocar nada --"
+          IUREDAV_PASS='iurdav_falso' ./target/debug/iuredav probe \
+            --url http://127.0.0.1:8099/webdav/ --user prueba@ejemplo.com --json > lectura.json
+          python3 tests/verificar-informe.py lectura.json
+
+          echo "-- con escritura: debe detectar la mentira y salir con codigo 1 --"
+          set +e
+          IUREDAV_PASS='iurdav_falso' ./target/debug/iuredav probe \
+            --url http://127.0.0.1:8099/webdav/ --user prueba@ejemplo.com \
+            --escritura --si --json > escritura.json
+          codigo=$?
+          set -e
+          test "$codigo" = "1" || { echo "se esperaba codigo 1 (el servidor miente), llego $codigo"; exit 1; }
+          python3 tests/verificar-informe.py escritura.json
+
+      # Montaje real de punta a punta contra el doble, con FUSE del propio runner.
+      - name: Montar de verdad y leer un documento
+        run: |
+          python3 tests/servidor-falso.py 8098 &
+          for i in $(seq 40); do curl -sf -o /dev/null http://127.0.0.1:8098/webdav/ && break || sleep 0.3; done
+          export IUREDAV_PASS='iurdav_falso'
+          ./target/debug/iuredav probe --url http://127.0.0.1:8098/webdav/ \
+            --user prueba@ejemplo.com --guardar-como ci > /dev/null || true
+
+          mkdir -p /tmp/montaje-ci
+          ./target/debug/iuredav mount ci --en /tmp/montaje-ci &
+          cli=$!
+          for i in $(seq 40); do mountpoint -q /tmp/montaje-ci && break || sleep 0.5; done
+          mountpoint -q /tmp/montaje-ci || { echo "no llego a montarse"; exit 1; }
+
+          # El nombre lleva acentos a proposito: es lo que rompio antes.
+          contenido=$(cat "/tmp/montaje-ci/General/Análisis de Peña.docx")
+          echo "leido: $contenido"
+          test -n "$contenido" || { echo "el documento salio vacio"; exit 1; }
+
+          # Debe ser de solo lectura: el kernel lo impide antes de llegar al servidor.
+          if rm "/tmp/montaje-ci/General/Análisis de Peña.docx" 2>/dev/null; then
+            echo "se pudo borrar en una unidad de solo lectura"; exit 1
+          fi
+          echo "el borrado se rechaza, como debe"
+
+          kill -INT $cli
+          for i in $(seq 20); do mountpoint -q /tmp/montaje-ci || break; sleep 0.5; done
+          mountpoint -q /tmp/montaje-ci && { echo "quedo montado tras Ctrl+C"; exit 1; }
+          echo "desmontado limpiamente"
+
+  empaquetar:
+    name: Instalador (${{ matrix.nombre }})
+    needs: pruebas
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: Linux x86_64
+            os: ubuntu-22.04
+            triple: x86_64-unknown-linux-gnu
+          - nombre: macOS Apple Silicon
+            os: macos-14
+            triple: aarch64-apple-darwin
+          - nombre: macOS Intel
+            os: macos-13
+            triple: x86_64-apple-darwin
+          - nombre: Windows x86_64
+            os: windows-latest
+            triple: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias del sistema (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libsoup-3.0-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.triple }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Descargar rclone para ${{ matrix.triple }}
+        run: python3 scripts/descargar-rclone.py --objetivo ${{ matrix.triple }}
+
+      - name: Construir la aplicacion
+        run: npm run tauri build -- --target ${{ matrix.triple }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iuredav-${{ matrix.triple }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            target/${{ matrix.triple }}/release/bundle/deb/*.deb
+            target/${{ matrix.triple }}/release/bundle/appimage/*.AppImage
+            target/${{ matrix.triple }}/release/bundle/dmg/*.dmg
+            target/${{ matrix.triple }}/release/bundle/msi/*.msi
+            target/${{ matrix.triple }}/release/bundle/nsis/*.exe

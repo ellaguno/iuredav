@@ -11,7 +11,11 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "iuredav", version, about = "Monta un WebDAV descubriendo antes lo que sabe hacer de verdad")]
+#[command(
+    name = "iuredav",
+    version,
+    about = "Monta un WebDAV descubriendo antes lo que sabe hacer de verdad"
+)]
 struct Cli {
     #[command(subcommand)]
     orden: Orden,
@@ -35,6 +39,8 @@ enum Orden {
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
+        // A stderr, no a stdout: con --json, stdout tiene que llevar solo JSON.
+        .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "iuredav_core=info,iuredav=info".into()),
@@ -64,8 +70,17 @@ fn listar() -> Result<()> {
             None => "sin sondear".into(),
         };
         println!("  {:<16} {}", p.id, p.url);
-        println!("  {:<16} monta en {} · {} · {}", "", p.punto_montaje.display(),
-            if p.escritura { "edicion" } else { "solo lectura" }, caps);
+        println!(
+            "  {:<16} monta en {} · {} · {}",
+            "",
+            p.punto_montaje.display(),
+            if p.escritura {
+                "edicion"
+            } else {
+                "solo lectura"
+            },
+            caps
+        );
     }
     Ok(())
 }
@@ -103,10 +118,16 @@ pub fn contrasena(perfil_id: &str, usuario: &str, del_entorno: Option<String>) -
 }
 
 pub fn confirmar(pregunta: &str) -> Result<bool> {
-    use std::io::{stdin, stdout, Write};
-    print!("{pregunta} [s/N] ");
-    stdout().flush().ok();
+    use std::io::{stderr, stdin, Write};
+    // La pregunta tambien va a stderr, por lo mismo.
+    eprint!("{pregunta} [s/N] ");
+    stderr().flush().ok();
     let mut r = String::new();
-    stdin().read_line(&mut r).context("no se pudo leer la respuesta")?;
-    Ok(matches!(r.trim().to_lowercase().as_str(), "s" | "si" | "sí"))
+    stdin()
+        .read_line(&mut r)
+        .context("no se pudo leer la respuesta")?;
+    Ok(matches!(
+        r.trim().to_lowercase().as_str(),
+        "s" | "si" | "sí"
+    ))
 }

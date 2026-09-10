@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use iuredav_core::caps::{opciones_de_montaje, MountOptions, ServerCapabilities};
 use iuredav_core::errors::MensajeAmistoso;
 use iuredav_core::perfiles::{self, Perfil};
+use iuredav_core::plataforma::{self, Requisito};
 use iuredav_core::probe::Probe;
 use iuredav_core::rclone::{ruta_binario, Rclone};
 use iuredav_core::secretos;
@@ -133,7 +134,12 @@ async fn asegurar_sidecar(app: &AppHandle, estado: &State<'_, Estado>) -> Result
 }
 
 #[tauri::command]
-async fn montar(app: AppHandle, estado: State<'_, Estado>, id: String, escritura: bool) -> Resp<String> {
+async fn montar(
+    app: AppHandle,
+    estado: State<'_, Estado>,
+    id: String,
+    escritura: bool,
+) -> Resp<String> {
     let mut perfil = perfiles::buscar(&id)
         .map_err(texto)?
         .ok_or_else(|| format!("no existe la conexion '{id}'"))?;
@@ -157,13 +163,27 @@ async fn montar(app: AppHandle, estado: State<'_, Estado>, id: String, escritura
         }
     };
 
-    let opts = MountOptions { escritura, ..Default::default() };
+    // Antes de nada: si a la maquina le falta la pieza que permite montar, el
+    // error de rclone no diria nada util. Mejor explicarlo aqui.
+    if let Err(r) = plataforma::comprobar() {
+        return Err(format!(
+            "Falta {}. {} {}",
+            r.que_falta, r.por_que, r.como_instalar
+        ));
+    }
+
+    let opts = MountOptions {
+        escritura,
+        ..Default::default()
+    };
     let opciones = opciones_de_montaje(&caps, &opts);
     perfiles::preparar_punto(&perfil.punto_montaje).map_err(texto)?;
 
     asegurar_sidecar(&app, &estado).await?;
     let guard = estado.rclone.lock().await;
-    let rc = guard.as_ref().ok_or("el sidecar de rclone no esta disponible")?;
+    let rc = guard
+        .as_ref()
+        .ok_or("el sidecar de rclone no esta disponible")?;
 
     rc.crear_remoto(&id, &perfil.url, &perfil.usuario, &password)
         .await
@@ -213,7 +233,11 @@ async fn estadisticas(estado: State<'_, Estado>) -> Resp<serde_json::Value> {
 /// Lista una carpeta del servidor sin pasar por el punto de montaje: es lo que
 /// alimenta el explorador integrado.
 #[tauri::command]
-async fn listar_remoto(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<serde_json::Value> {
+async fn listar_remoto(
+    estado: State<'_, Estado>,
+    id: String,
+    ruta: String,
+) -> Resp<serde_json::Value> {
     let guard = estado.rclone.lock().await;
     let rc = guard.as_ref().ok_or("no hay ninguna conexion activa")?;
     rc.llamar(
@@ -224,9 +248,34 @@ async fn listar_remoto(estado: State<'_, Estado>, id: String, ruta: String) -> R
     .map_err(texto)
 }
 
+/// `None` si esta maquina puede montar. Si no, que falta y como conseguirlo.
+#[tauri::command]
+fn comprobar_sistema() -> Option<Requisito> {
+    plataforma::comprobar().err()
+}
+
+/// Nombre del destino segun la plataforma: en Windows es una unidad, no una carpeta.
+#[tauri::command]
+fn nombre_destino() -> &'static str {
+    plataforma::nombre_del_destino()
+}
+
+/// Cambia entre solo lectura y edicion. Se guarda en el perfil porque es una
+/// decision del usuario sobre esa conexion, no de una sesion suelta.
+#[tauri::command]
+async fn cambiar_modo(id: String, escritura: bool) -> Resp<()> {
+    let mut p = perfiles::buscar(&id)
+        .map_err(texto)?
+        .ok_or_else(|| format!("no existe la conexion '{id}'"))?;
+    p.escritura = escritura;
+    perfiles::upsert(p).map_err(texto)
+}
+
 #[tauri::command]
 fn punto_sugerido(id: String) -> String {
-    perfiles::punto_por_defecto(&id).to_string_lossy().into_owned()
+    perfiles::punto_por_defecto(&id)
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Se declara para que el tipo del evento llegue a TypeScript por la misma via que
@@ -257,6 +306,9 @@ pub fn run() {
             estadisticas,
             listar_remoto,
             punto_sugerido,
+            comprobar_sistema,
+            nombre_destino,
+            cambiar_modo,
         ])
         .on_window_event(|ventana, evento| {
             // Cerrar la ventana tiene que desmontar: dejar un punto de montaje

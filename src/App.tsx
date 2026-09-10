@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { openPath } from "@tauri-apps/plugin-opener";
-import { Aviso, Conexion, api } from "./api";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { Aviso, Conexion, Requisito, api } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
@@ -32,6 +32,8 @@ export default function App() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [falta, setFalta] = useState<Requisito | null>(null);
+  const [destino, setDestino] = useState("Carpeta");
 
   const recargar = useCallback(async () => {
     try {
@@ -42,6 +44,13 @@ export default function App() {
   }, []);
 
   useEffect(() => { void recargar(); }, [recargar]);
+
+  // Si a la maquina le falta la pieza que permite montar, se dice al entrar y no
+  // cuando el usuario pulsa Montar y recibe un error del sistema.
+  useEffect(() => {
+    api.comprobarSistema().then(setFalta).catch(() => {});
+    api.nombreDestino().then(setDestino).catch(() => {});
+  }, []);
 
   // Los limites del servidor llegan traducidos desde Rust y se muestran tal cual.
   useEffect(() => {
@@ -57,6 +66,27 @@ export default function App() {
     try {
       if (c.montado) await api.desmontar(c.id);
       else await api.montar(c.id, c.escritura);
+      await recargar();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function cambiarModo(c: Conexion) {
+    if (!c.escritura) {
+      const puedeEscribir = c.capacidades?.real.put_crear.estado === "funciona";
+      const aviso = puedeEscribir
+        ? "En este servidor, cada vez que guardes un documento se creará una versión nueva. " +
+          "Y desde la carpeta seguirás sin poder eliminar ni renombrar.\n\n¿Activar el modo edición?"
+        : "Todavía no se ha comprobado que este servidor acepte subidas. Puedes activarlo, " +
+          "pero si no las acepta la carpeta seguirá siendo de solo lectura.\n\n¿Activar de todas formas?";
+      if (!window.confirm(aviso)) return;
+    }
+    setOcupado(c.id);
+    try {
+      await api.cambiarModo(c.id, !c.escritura);
       await recargar();
     } catch (e) {
       setError(String(e));
@@ -105,6 +135,25 @@ export default function App() {
           </button>
         )}
       </header>
+
+      {falta && (
+        <div className="tarjeta">
+          <h2>Falta {falta.que_falta}</h2>
+          <p style={{ color: "var(--tenue)", marginTop: 4 }}>{falta.por_que}</p>
+          <div className="nota aviso">
+            <strong>Qué hacer</strong>
+            <p>{falta.como_instalar}</p>
+          </div>
+          {falta.url && (
+            <div className="acciones">
+              <span className="crece" />
+              <button className="btn principal" onClick={() => void openUrl(falta.url!)}>
+                Descargar {falta.que_falta}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div className="error-caja">{error}</div>}
 
@@ -175,9 +224,11 @@ export default function App() {
                       <span className="punto" />
                       {c.montado ? "Montado" : "Desmontado"}
                     </span>
-                    {!c.escritura && <span className="pastilla">Solo lectura</span>}
+                    <span className="pastilla">{c.escritura ? "Edición" : "Solo lectura"}</span>
                   </div>
-                  <div className="ruta">{c.punto_montaje}</div>
+                  <div className="ruta">
+                    {destino}: {c.punto_montaje}
+                  </div>
                 </div>
 
                 {c.montado && (
@@ -207,6 +258,9 @@ export default function App() {
               <div className="acciones" style={{ marginTop: 12 }}>
                 <button className="btn plano" onClick={() => setVista({ pantalla: "detalle", id: c.id })}>
                   Ver qué sabe hacer este servidor
+                </button>
+                <button className="btn plano" onClick={() => void cambiarModo(c)} disabled={c.montado}>
+                  {c.escritura ? "Pasar a solo lectura" : "Permitir edición"}
                 </button>
                 <span className="crece" />
                 <button className="btn plano peligro" onClick={() => void olvidar(c)}>

@@ -87,7 +87,8 @@ pub fn cargar() -> Result<Vec<Perfil>> {
     if !f.exists() {
         return Ok(Vec::new());
     }
-    let texto = fs::read_to_string(&f).with_context(|| format!("no se pudo leer {}", f.display()))?;
+    let texto =
+        fs::read_to_string(&f).with_context(|| format!("no se pudo leer {}", f.display()))?;
     serde_json::from_str(&texto).with_context(|| format!("{} esta corrupto", f.display()))
 }
 
@@ -196,7 +197,10 @@ mod tests {
         let p = Perfil::nuevo("x", "https://a.test/", "u@e.c");
         let json = serde_json::to_string(&p).unwrap();
         for prohibido in ["pass", "password", "contrasena", "secret"] {
-            assert!(!json.to_lowercase().contains(prohibido), "el perfil filtra '{prohibido}': {json}");
+            assert!(
+                !json.to_lowercase().contains(prohibido),
+                "el perfil filtra '{prohibido}': {json}"
+            );
         }
     }
 }

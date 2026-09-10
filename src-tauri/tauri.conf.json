@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage"],
+    "targets": "all",
     "category": "Utility",
     "shortDescription": "Monta tu Iurefficient como una unidad del sistema",
     "longDescription": "IureDav monta una instancia de Iurefficient como una unidad de tu equipo. Descubre lo que el servidor sabe hacer de verdad antes de montarlo, en vez de fiarse de lo que anuncia.",
@@ -39,9 +39,22 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["fuse3"]
+        "depends": [
+          "fuse3"
+        ]
       }
     },
-    "resources": []
+    "resources": [],
+    "externalBin": [
+      "binaries/iuredav-rclone"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    }
   }
 }

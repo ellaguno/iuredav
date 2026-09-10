@@ -9,9 +9,10 @@ dist
 /src-tauri/gen
 package-lock.json.bak
 
-# Binario sidecar descargado (no se versiona: ~50 MB por plataforma)
+# Binarios de rclone descargados (~80 MB cada uno). Se obtienen con
+# `python3 scripts/descargar-rclone.py`, no se versionan.
+/src-tauri/binaries/
 /src-tauri/resources/rclone*
-/vendor/rclone*
 
 # --- SECRETOS Y DATOS DE CLIENTES ---
 # El repositorio es PUBLICO. Nada de esto puede entrar nunca.

@@ -56,9 +56,13 @@ fn clasificar(status: StatusCode) -> Verdict {
     if status.is_success() {
         Verdict::Funciona
     } else if status.is_server_error() {
-        Verdict::Roto { status: status.as_u16() }
+        Verdict::Roto {
+            status: status.as_u16(),
+        }
     } else {
-        Verdict::Rechazado { status: status.as_u16() }
+        Verdict::Rechazado {
+            status: status.as_u16(),
+        }
     }
 }
 
@@ -81,7 +85,9 @@ impl Probe {
     }
 
     fn url(&self, rel: &str) -> Result<Url> {
-        self.base.join(rel).with_context(|| format!("ruta invalida: {rel}"))
+        self.base
+            .join(rel)
+            .with_context(|| format!("ruta invalida: {rel}"))
     }
 
     async fn peticion(&self, verbo: &str, rel: &str) -> Result<reqwest::RequestBuilder> {
@@ -125,7 +131,9 @@ impl Probe {
         // 2. PROPFIND Depth 0 sobre la raiz: la prueba minima de que hay un WebDAV vivo.
         caps.real.propfind_depth0 = match self.propfind("", 0).await {
             Ok((v, _)) => v,
-            Err(e) => Verdict::Error { detalle: e.to_string() },
+            Err(e) => Verdict::Error {
+                detalle: e.to_string(),
+            },
         };
 
         // Si ni siquiera esto funciona, lo mas probable es que la contrasena de
@@ -143,7 +151,9 @@ impl Probe {
                 e
             }
             Err(e) => {
-                caps.real.propfind_depth1 = Verdict::Error { detalle: e.to_string() };
+                caps.real.propfind_depth1 = Verdict::Error {
+                    detalle: e.to_string(),
+                };
                 Vec::new()
             }
         };
@@ -205,7 +215,14 @@ impl Probe {
     async fn probar_get(&self, f: &DavEntry) -> (Verdict, SoporteRango) {
         let url = match Url::parse(self.base.as_str()).and_then(|u| u.join(&f.href)) {
             Ok(u) => u,
-            Err(e) => return (Verdict::Error { detalle: e.to_string() }, SoporteRango::Desconocido),
+            Err(e) => {
+                return (
+                    Verdict::Error {
+                        detalle: e.to_string(),
+                    },
+                    SoporteRango::Desconocido,
+                )
+            }
         };
 
         let get = match self
@@ -216,7 +233,9 @@ impl Probe {
             .await
         {
             Ok(r) => clasificar(r.status()),
-            Err(e) => Verdict::Error { detalle: e.to_string() },
+            Err(e) => Verdict::Error {
+                detalle: e.to_string(),
+            },
         };
 
         if !get.usable() {
@@ -272,9 +291,13 @@ impl Probe {
         match self.peticion("PUT", rel).await {
             Ok(b) => match b.body(cuerpo).send().await {
                 Ok(r) => clasificar(r.status()),
-                Err(e) => Verdict::Error { detalle: e.to_string() },
+                Err(e) => Verdict::Error {
+                    detalle: e.to_string(),
+                },
             },
-            Err(e) => Verdict::Error { detalle: e.to_string() },
+            Err(e) => Verdict::Error {
+                detalle: e.to_string(),
+            },
         }
     }
 
@@ -282,9 +305,13 @@ impl Probe {
         match self.peticion(verbo, rel).await {
             Ok(b) => match b.send().await {
                 Ok(r) => clasificar(r.status()),
-                Err(e) => Verdict::Error { detalle: e.to_string() },
+                Err(e) => Verdict::Error {
+                    detalle: e.to_string(),
+                },
             },
-            Err(e) => Verdict::Error { detalle: e.to_string() },
+            Err(e) => Verdict::Error {
+                detalle: e.to_string(),
+            },
         }
     }
 
@@ -326,16 +353,23 @@ impl Probe {
 </D:prop></D:set></D:propertyupdate>"#;
 
         let r = match self.peticion("PROPPATCH", RUTA_SELFTEST).await {
-            Ok(b) => b
-                .header("Content-Type", "application/xml; charset=utf-8")
-                .body(BODY)
-                .send()
-                .await,
-            Err(e) => return Verdict::Error { detalle: e.to_string() },
+            Ok(b) => {
+                b.header("Content-Type", "application/xml; charset=utf-8")
+                    .body(BODY)
+                    .send()
+                    .await
+            }
+            Err(e) => {
+                return Verdict::Error {
+                    detalle: e.to_string(),
+                }
+            }
         };
 
         match r {
-            Err(e) => Verdict::Error { detalle: e.to_string() },
+            Err(e) => Verdict::Error {
+                detalle: e.to_string(),
+            },
             Ok(r) => {
                 let status = r.status();
                 if !status.is_success() {
@@ -358,23 +392,45 @@ impl Probe {
     async fn probar_move(&self) -> Verdict {
         let destino = match self.url(RUTA_SELFTEST_MOVIDO) {
             Ok(u) => u.to_string(),
-            Err(e) => return Verdict::Error { detalle: e.to_string() },
+            Err(e) => {
+                return Verdict::Error {
+                    detalle: e.to_string(),
+                }
+            }
         };
 
         let v = match self.peticion("MOVE", RUTA_SELFTEST).await {
-            Ok(b) => match b.header("Destination", &destino).header("Overwrite", "T").send().await {
+            Ok(b) => match b
+                .header("Destination", &destino)
+                .header("Overwrite", "T")
+                .send()
+                .await
+            {
                 Ok(r) => clasificar(r.status()),
-                Err(e) => Verdict::Error { detalle: e.to_string() },
+                Err(e) => Verdict::Error {
+                    detalle: e.to_string(),
+                },
             },
-            Err(e) => return Verdict::Error { detalle: e.to_string() },
+            Err(e) => {
+                return Verdict::Error {
+                    detalle: e.to_string(),
+                }
+            }
         };
 
         // Si de verdad funciona, lo devolvemos a su sitio para no dejar el arbol
         // desordenado, y para que el DELETE de despues encuentre el fichero.
         if v.usable() {
-            let origen = self.url(RUTA_SELFTEST).map(|u| u.to_string()).unwrap_or_default();
+            let origen = self
+                .url(RUTA_SELFTEST)
+                .map(|u| u.to_string())
+                .unwrap_or_default();
             if let Ok(b) = self.peticion("MOVE", RUTA_SELFTEST_MOVIDO).await {
-                let _ = b.header("Destination", origen).header("Overwrite", "T").send().await;
+                let _ = b
+                    .header("Destination", origen)
+                    .header("Overwrite", "T")
+                    .send()
+                    .await;
             }
         }
         v
@@ -394,11 +450,25 @@ impl Probe {
                     .send()
                     .await
             }
-            Err(e) => return InformeLocks { lock: Verdict::Error { detalle: e.to_string() }, cruza_procesos: None },
+            Err(e) => {
+                return InformeLocks {
+                    lock: Verdict::Error {
+                        detalle: e.to_string(),
+                    },
+                    cruza_procesos: None,
+                }
+            }
         };
 
         let (verdict, token) = match primero {
-            Err(e) => return InformeLocks { lock: Verdict::Error { detalle: e.to_string() }, cruza_procesos: None },
+            Err(e) => {
+                return InformeLocks {
+                    lock: Verdict::Error {
+                        detalle: e.to_string(),
+                    },
+                    cruza_procesos: None,
+                }
+            }
             Ok(r) => {
                 let status = r.status();
                 let token = r
@@ -411,7 +481,10 @@ impl Probe {
         };
 
         if !verdict.usable() {
-            return InformeLocks { lock: verdict, cruza_procesos: None };
+            return InformeLocks {
+                lock: verdict,
+                cruza_procesos: None,
+            };
         }
 
         // Varios intentos desde clientes nuevos: el reparto de peticiones entre
@@ -420,7 +493,9 @@ impl Probe {
         let mut cruza = Some(true);
         for intento in 0..5 {
             let Ok(otro) = construir_cliente() else { break };
-            let Ok(url) = self.url(RUTA_SELFTEST) else { break };
+            let Ok(url) = self.url(RUTA_SELFTEST) else {
+                break;
+            };
             let r = otro
                 .request(metodo("LOCK"), url)
                 .basic_auth(&self.usuario, Some(&self.password))
@@ -432,7 +507,10 @@ impl Probe {
                 .await;
             if let Ok(r) = r {
                 if r.status().is_success() {
-                    warn!(intento, "un segundo LOCK tuvo exito sobre un recurso ya bloqueado");
+                    warn!(
+                        intento,
+                        "un segundo LOCK tuvo exito sobre un recurso ya bloqueado"
+                    );
                     cruza = Some(false);
                     break;
                 }
@@ -446,7 +524,10 @@ impl Probe {
             }
         }
 
-        InformeLocks { lock: verdict, cruza_procesos: cruza }
+        InformeLocks {
+            lock: verdict,
+            cruza_procesos: cruza,
+        }
     }
 }
 
@@ -466,13 +547,22 @@ fn leer_anuncio(r: &Response) -> Anunciado {
         r.headers()
             .get(cabecera)
             .and_then(|v| v.to_str().ok())
-            .map(|s| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect())
+            .map(|s| {
+                s.split(',')
+                    .map(|x| x.trim().to_string())
+                    .filter(|x| !x.is_empty())
+                    .collect()
+            })
             .unwrap_or_default()
     };
     Anunciado {
         allow: lista("Allow"),
         dav: lista("DAV"),
-        server: r.headers().get("Server").and_then(|v| v.to_str().ok()).map(String::from),
+        server: r
+            .headers()
+            .get("Server")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from),
     }
 }
 
@@ -482,8 +572,14 @@ mod tests {
 
     #[test]
     fn un_403_es_un_no_deliberado_y_un_502_es_un_verbo_roto() {
-        assert_eq!(clasificar(StatusCode::FORBIDDEN), Verdict::Rechazado { status: 403 });
-        assert_eq!(clasificar(StatusCode::BAD_GATEWAY), Verdict::Roto { status: 502 });
+        assert_eq!(
+            clasificar(StatusCode::FORBIDDEN),
+            Verdict::Rechazado { status: 403 }
+        );
+        assert_eq!(
+            clasificar(StatusCode::BAD_GATEWAY),
+            Verdict::Roto { status: 502 }
+        );
         assert_eq!(clasificar(StatusCode::CREATED), Verdict::Funciona);
         assert_eq!(clasificar(StatusCode::MULTI_STATUS), Verdict::Funciona);
     }
@@ -494,6 +590,9 @@ mod tests {
         assert!(p.base.as_str().ends_with('/'));
         // Sin la barra final, `join` se comeria el ultimo segmento y la sonda
         // acabaria escribiendo fuera de /webdav/.
-        assert_eq!(p.url("General/x.txt").unwrap().path(), "/webdav/General/x.txt");
+        assert_eq!(
+            p.url("General/x.txt").unwrap().path(),
+            "/webdav/General/x.txt"
+        );
     }
 }

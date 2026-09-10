@@ -33,17 +33,29 @@ fn verbo_de(linea: &str) -> Option<&'static str> {
     let l = linea.to_ascii_lowercase();
     // El orden importa: "failed to move" contiene "move", pero tambien queremos
     // cazar el texto que rclone usa para renombrar, que es el mismo verbo.
-    if l.contains("failed to remove") || l.contains("failed to delete") || l.contains("couldn't delete") {
+    if l.contains("failed to remove")
+        || l.contains("failed to delete")
+        || l.contains("couldn't delete")
+    {
         Some("DELETE")
-    } else if l.contains("failed to mkdir") || l.contains("failed to make directory") || l.contains("mkcol") {
+    } else if l.contains("failed to mkdir")
+        || l.contains("failed to make directory")
+        || l.contains("mkcol")
+    {
         Some("MKCOL")
-    } else if l.contains("failed to move") || l.contains("failed to rename") || l.contains("dirmove") {
+    } else if l.contains("failed to move")
+        || l.contains("failed to rename")
+        || l.contains("dirmove")
+    {
         Some("MOVE")
     } else if l.contains("failed to copy") {
         Some("COPY")
     } else if l.contains("failed to set modification time") || l.contains("proppatch") {
         Some("PROPPATCH")
-    } else if l.contains("failed to open") || l.contains("failed to upload") || l.contains("failed to update") {
+    } else if l.contains("failed to open")
+        || l.contains("failed to upload")
+        || l.contains("failed to update")
+    {
         Some("PUT")
     } else {
         None
@@ -74,7 +86,14 @@ fn status_de(linea: &str) -> Option<u16> {
 fn ruta_de(linea: &str) -> Option<String> {
     let resto = linea.split(" : ").nth(1)?;
     let ruta = resto.split(": ").next()?.trim();
-    if ruta.is_empty() || ruta.len() > 260 || ruta.contains(' ') && ruta.contains('/') == false {
+
+    if ruta.is_empty() || ruta.len() > 260 {
+        return None;
+    }
+    // Si lleva espacios y ningun separador, no es una ruta: es prosa del mensaje.
+    // Ensenarla como si fuera un archivo confundiria mas que ayudar.
+    let parece_prosa = ruta.contains(' ') && !ruta.contains('/') && !ruta.contains('\\');
+    if parece_prosa {
         return None;
     }
     Some(ruta.to_string())
@@ -204,7 +223,11 @@ mod tests {
     fn traduce_el_fallo_real_de_dirmove() {
         let l = "2026/09/09 19:26:20 ERROR : webdav root 'General/demo2.txt': Server side directory move failed: DirMove MOVE call failed: puerta de enlace incorrecta: 502 Bad Gateway";
         let m = traducir(l).expect("deberia traducirse");
-        assert!(m.titulo.contains("mover"), "titulo inesperado: {}", m.titulo);
+        assert!(
+            m.titulo.contains("mover"),
+            "titulo inesperado: {}",
+            m.titulo
+        );
         assert_eq!(m.severidad, Severidad::Limite);
     }
 

@@ -50,6 +50,13 @@ export interface Conexion {
   incumple: string[];
 }
 
+export interface Requisito {
+  que_falta: string;
+  por_que: string;
+  como_instalar: string;
+  url: string | null;
+}
+
 export interface Aviso {
   titulo: string;
   detalle: string;
@@ -86,6 +93,12 @@ export const api = {
   montar: (id: string, escritura: boolean) => invoke<string>("montar", { id, escritura }),
   desmontar: (id: string) => invoke<void>("desmontar", { id }),
   puntoSugerido: (id: string) => invoke<string>("punto_sugerido", { id }),
+
+  /** `null` si esta maquina puede montar; si no, que le falta. */
+  comprobarSistema: () => invoke<Requisito | null>("comprobar_sistema"),
+  nombreDestino: () => invoke<string>("nombre_destino"),
+  cambiarModo: (id: string, escritura: boolean) =>
+    invoke<void>("cambiar_modo", { id, escritura }),
 };
 
 /** Un verbo solo cuenta como disponible si se comprobo que funciona. */

@@ -130,7 +130,10 @@ impl Default for Real {
             mover: Verdict::SinProbar,
             borrar: Verdict::SinProbar,
             proppatch_modtime: Verdict::SinProbar,
-            locks: InformeLocks { lock: Verdict::SinProbar, cruza_procesos: None },
+            locks: InformeLocks {
+                lock: Verdict::SinProbar,
+                cruza_procesos: None,
+            },
             raiz: Vec::new(),
         }
     }
@@ -171,7 +174,10 @@ impl ServerCapabilities {
     }
 
     fn anuncia(&self, verbo: &str) -> bool {
-        self.anunciado.allow.iter().any(|v| v.eq_ignore_ascii_case(verbo))
+        self.anunciado
+            .allow
+            .iter()
+            .any(|v| v.eq_ignore_ascii_case(verbo))
     }
 
     /// Verbos que el servidor promete en `Allow:` pero que no funcionan.
@@ -190,12 +196,21 @@ impl ServerCapabilities {
                 });
             }
         };
-        revisar("DELETE", &self.real.borrar,
-            "Los documentos no se pueden eliminar desde la unidad. Hazlo desde Iurefficient.");
-        revisar("MKCOL", &self.real.mkcol,
-            "Las carpetas se crean desde Iurefficient, no desde la unidad.");
-        revisar("MOVE", &self.real.mover,
-            "Este servidor no permite mover ni renombrar archivos.");
+        revisar(
+            "DELETE",
+            &self.real.borrar,
+            "Los documentos no se pueden eliminar desde la unidad. Hazlo desde Iurefficient.",
+        );
+        revisar(
+            "MKCOL",
+            &self.real.mkcol,
+            "Las carpetas se crean desde Iurefficient, no desde la unidad.",
+        );
+        revisar(
+            "MOVE",
+            &self.real.mover,
+            "Este servidor no permite mover ni renombrar archivos.",
+        );
         revisar("PROPPATCH", &self.real.proppatch_modtime,
             "La fecha de modificacion no se puede escribir, asi que no sirve para detectar cambios.");
         filas
@@ -277,37 +292,79 @@ impl OpcionesRclone {
     /// Linea de comandos equivalente, para el panel de diagnostico y para que el
     /// usuario pueda reproducir el montaje a mano si pide soporte.
     pub fn linea_equivalente(&self, remoto: &str, punto: &str) -> String {
-        let mut p = vec!["rclone".to_string(), "mount".into(), format!("{remoto}:"), punto.to_string()];
+        let mut p = vec![
+            "rclone".to_string(),
+            "mount".into(),
+            format!("{remoto}:"),
+            punto.to_string(),
+        ];
         let dur = |v: &Value| -> String {
             let ns = v.as_i64().unwrap_or(0);
-            if ns == 0 { "0".into() }
-            else if ns % HORA == 0 { format!("{}h", ns / HORA) }
-            else if ns % MIN == 0 { format!("{}m", ns / MIN) }
-            else { format!("{}s", ns / NS) }
+            if ns == 0 {
+                "0".into()
+            } else if ns % HORA == 0 {
+                format!("{}h", ns / HORA)
+            } else if ns % MIN == 0 {
+                format!("{}m", ns / MIN)
+            } else {
+                format!("{}s", ns / NS)
+            }
         };
         if let Some(Value::Array(d)) = self.config.get("DisableFeatures") {
-            let l: Vec<String> = d.iter().filter_map(|x| x.as_str().map(String::from)).collect();
+            let l: Vec<String> = d
+                .iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect();
             p.push(format!("--disable {}", l.join(",")));
         }
-        if self.vfs.get("ReadOnly") == Some(&Value::Bool(true)) { p.push("--read-only".into()); }
-        if self.vfs.get("NoModTime") == Some(&Value::Bool(true)) { p.push("--no-modtime".into()); }
-        if self.config.get("UseServerModTime") == Some(&Value::Bool(true)) { p.push("--use-server-modtime".into()); }
+        if self.vfs.get("ReadOnly") == Some(&Value::Bool(true)) {
+            p.push("--read-only".into());
+        }
+        if self.vfs.get("NoModTime") == Some(&Value::Bool(true)) {
+            p.push("--no-modtime".into());
+        }
+        if self.config.get("UseServerModTime") == Some(&Value::Bool(true)) {
+            p.push("--use-server-modtime".into());
+        }
         p.push("--vfs-cache-mode full".into());
         if let Some(v) = self.vfs.get("CacheMaxSize") {
-            p.push(format!("--vfs-cache-max-size {}M", v.as_i64().unwrap_or(0) / MIB));
+            p.push(format!(
+                "--vfs-cache-max-size {}M",
+                v.as_i64().unwrap_or(0) / MIB
+            ));
         }
-        if let Some(v) = self.vfs.get("CacheMaxAge") { p.push(format!("--vfs-cache-max-age {}", dur(v))); }
-        if let Some(v) = self.vfs.get("WriteBack") { p.push(format!("--vfs-write-back {}", dur(v))); }
+        if let Some(v) = self.vfs.get("CacheMaxAge") {
+            p.push(format!("--vfs-cache-max-age {}", dur(v)));
+        }
+        if let Some(v) = self.vfs.get("WriteBack") {
+            p.push(format!("--vfs-write-back {}", dur(v)));
+        }
         if let Some(v) = self.vfs.get("ChunkSize") {
-            p.push(format!("--vfs-read-chunk-size {}M", v.as_i64().unwrap_or(0) / MIB));
+            p.push(format!(
+                "--vfs-read-chunk-size {}M",
+                v.as_i64().unwrap_or(0) / MIB
+            ));
         }
-        if let Some(v) = self.vfs.get("DirCacheTime") { p.push(format!("--dir-cache-time {}", dur(v))); }
+        if let Some(v) = self.vfs.get("DirCacheTime") {
+            p.push(format!("--dir-cache-time {}", dur(v)));
+        }
         p.push("--poll-interval 0".into());
-        if let Some(v) = self.mount.get("AttrTimeout") { p.push(format!("--attr-timeout {}", dur(v))); }
-        for (k, f) in [("Transfers", "--transfers"), ("Checkers", "--checkers"), ("LowLevelRetries", "--low-level-retries"), ("MultiThreadStreams", "--multi-thread-streams")] {
-            if let Some(v) = self.config.get(k) { p.push(format!("{f} {}", v.as_i64().unwrap_or(0))); }
+        if let Some(v) = self.mount.get("AttrTimeout") {
+            p.push(format!("--attr-timeout {}", dur(v)));
         }
-        if let Some(v) = self.config.get("Timeout") { p.push(format!("--timeout {}", dur(v))); }
+        for (k, f) in [
+            ("Transfers", "--transfers"),
+            ("Checkers", "--checkers"),
+            ("LowLevelRetries", "--low-level-retries"),
+            ("MultiThreadStreams", "--multi-thread-streams"),
+        ] {
+            if let Some(v) = self.config.get(k) {
+                p.push(format!("{f} {}", v.as_i64().unwrap_or(0)));
+            }
+        }
+        if let Some(v) = self.config.get("Timeout") {
+            p.push(format!("--timeout {}", dur(v)));
+        }
         p.join(" \\\n  ")
     }
 }
@@ -359,8 +416,10 @@ pub fn opciones_de_montaje(caps: &ServerCapabilities, opts: &MountOptions) -> Op
     // asi que la copia local es la referencia durante la sesion. `full` ademas es lo
     // unico que permite a Office y LibreOffice abrir con acceso aleatorio.
     o.vfs.insert("CacheMode".into(), json!(CACHE_MODE_FULL));
-    o.vfs.insert("CacheMaxSize".into(), json!(opts.cache_max_size_bytes));
-    o.vfs.insert("CacheMaxAge".into(), json!(opts.cache_max_age_ns));
+    o.vfs
+        .insert("CacheMaxSize".into(), json!(opts.cache_max_size_bytes));
+    o.vfs
+        .insert("CacheMaxAge".into(), json!(opts.cache_max_age_ns));
     if !solo_lectura {
         o.vfs.insert("WriteBack".into(), json!(opts.write_back_ns));
     }
@@ -379,7 +438,8 @@ pub fn opciones_de_montaje(caps: &ServerCapabilities, opts: &MountOptions) -> Op
     o.vfs.insert("DirCacheTime".into(), json!(5 * MIN));
     o.vfs.insert("PollInterval".into(), json!(0));
     o.mount.insert("AttrTimeout".into(), json!(5 * NS));
-    o.mount.insert("VolumeName".into(), json!(opts.nombre_volumen));
+    o.mount
+        .insert("VolumeName".into(), json!(opts.nombre_volumen));
 
     // --- Concurrencia contenida ---
     // El servidor corre con `gunicorn --workers 3`. Pedirle mas paralelismo del que
@@ -400,8 +460,21 @@ mod tests {
     /// anuncia todo, cumple casi nada.
     fn caps_iurefficient() -> ServerCapabilities {
         let mut c = ServerCapabilities::nuevo("https://ejemplo.test/webdav/");
-        c.anunciado.allow = ["OPTIONS", "GET", "HEAD", "PROPFIND", "PUT", "DELETE", "COPY", "MOVE", "PROPPATCH", "MKCOL"]
-            .iter().map(|s| s.to_string()).collect();
+        c.anunciado.allow = [
+            "OPTIONS",
+            "GET",
+            "HEAD",
+            "PROPFIND",
+            "PUT",
+            "DELETE",
+            "COPY",
+            "MOVE",
+            "PROPPATCH",
+            "MKCOL",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
         c.real.propfind_depth1 = Verdict::Funciona;
         c.real.get = Verdict::Funciona;
         c.real.put_crear = Verdict::Funciona;
@@ -426,10 +499,21 @@ mod tests {
     #[test]
     fn retira_de_rclone_los_verbos_que_no_funcionan() {
         let o = opciones_de_montaje(&caps_iurefficient(), &MountOptions::default());
-        let d = o.config.get("DisableFeatures").expect("falta DisableFeatures");
-        let lista: Vec<&str> = d.as_array().unwrap().iter().map(|x| x.as_str().unwrap()).collect();
+        let d = o
+            .config
+            .get("DisableFeatures")
+            .expect("falta DisableFeatures");
+        let lista: Vec<&str> = d
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap())
+            .collect();
         for esperado in ["Copy", "DirMove", "Move", "Purge", "CleanUp"] {
-            assert!(lista.contains(&esperado), "DisableFeatures no incluye {esperado}: {lista:?}");
+            assert!(
+                lista.contains(&esperado),
+                "DisableFeatures no incluye {esperado}: {lista:?}"
+            );
         }
     }
 
@@ -441,16 +525,26 @@ mod tests {
 
     #[test]
     fn el_modo_edicion_no_basta_si_el_put_no_funciona() {
-        let opts = MountOptions { escritura: true, ..Default::default() };
+        let opts = MountOptions {
+            escritura: true,
+            ..Default::default()
+        };
 
         let o = opciones_de_montaje(&caps_iurefficient(), &opts);
         assert_eq!(o.vfs.get("ReadOnly"), Some(&json!(false)));
-        assert!(o.vfs.contains_key("WriteBack"), "en escritura hace falta agrupar los guardados");
+        assert!(
+            o.vfs.contains_key("WriteBack"),
+            "en escritura hace falta agrupar los guardados"
+        );
 
         let mut sin_put = caps_iurefficient();
         sin_put.real.put_crear = Verdict::Rechazado { status: 403 };
         let o = opciones_de_montaje(&sin_put, &opts);
-        assert_eq!(o.vfs.get("ReadOnly"), Some(&json!(true)), "sin PUT hay que forzar solo lectura");
+        assert_eq!(
+            o.vfs.get("ReadOnly"),
+            Some(&json!(true)),
+            "sin PUT hay que forzar solo lectura"
+        );
     }
 
     /// Las claves y los tipos tienen que coincidir con `rclone rc --loopback
@@ -479,7 +573,10 @@ mod tests {
         c.real.proppatch_modtime = Verdict::Funciona;
 
         let o = opciones_de_montaje(&c, &MountOptions::default());
-        assert!(!o.config.contains_key("DisableFeatures"), "no hay que recortar un servidor que cumple");
+        assert!(
+            !o.config.contains_key("DisableFeatures"),
+            "no hay que recortar un servidor que cumple"
+        );
         assert!(!o.vfs.contains_key("NoModTime"));
         assert!(c.discrepancias().is_empty());
     }
@@ -488,7 +585,10 @@ mod tests {
     fn la_linea_equivalente_es_legible() {
         let o = opciones_de_montaje(&caps_iurefficient(), &MountOptions::default());
         let l = o.linea_equivalente("iurefficient", "/home/x/Iurefficient");
-        assert!(l.contains("--disable CleanUp,Copy,DirMove,Move,Purge"), "{l}");
+        assert!(
+            l.contains("--disable CleanUp,Copy,DirMove,Move,Purge"),
+            "{l}"
+        );
         assert!(l.contains("--read-only"));
         assert!(l.contains("--dir-cache-time 5m"), "{l}");
         assert!(l.contains("--vfs-cache-max-age 720h"), "{l}");

@@ -32,23 +32,30 @@ pub struct Args {
     #[arg(long, value_name = "ID")]
     pub guardar_como: Option<String>,
 
-    /// Vuelca el informe completo como JSON.
+    /// Vuelca el informe completo como JSON. stdout lleva solo JSON.
     #[arg(long)]
     pub json: bool,
+
+    /// No preguntar antes de la fase de escritura. Para automatizacion.
+    #[arg(long)]
+    pub si: bool,
 }
 
 pub async fn ejecutar(args: Args) -> Result<()> {
     if args.escritura {
         eprintln!("AVISO: se creara {RUTA_SELFTEST} en el servidor.");
         eprintln!("       Si el servidor rechaza DELETE, ese fichero quedara ahi.");
-        if !crate::confirmar("¿Continuar?")? {
+        if !args.si && !crate::confirmar("¿Continuar?")? {
             eprintln!("Cancelado. Sin --escritura la sonda no deja rastro.");
             return Ok(());
         }
     }
 
     let probe = Probe::nuevo(&args.url, &args.user, &args.pass)?;
-    let caps = probe.ejecutar(args.escritura).await.context("no se pudo completar la sonda")?;
+    let caps = probe
+        .ejecutar(args.escritura)
+        .await
+        .context("no se pudo completar la sonda")?;
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&caps)?);
@@ -57,7 +64,8 @@ pub async fn ejecutar(args: Args) -> Result<()> {
     }
 
     if let Some(id) = &args.guardar_como {
-        let mut p = perfiles::buscar(id)?.unwrap_or_else(|| Perfil::nuevo(id, &args.url, &args.user));
+        let mut p =
+            perfiles::buscar(id)?.unwrap_or_else(|| Perfil::nuevo(id, &args.url, &args.user));
         p.url = caps.url.clone();
         p.usuario = args.user.clone();
         p.capacidades = Some(caps.clone());
@@ -82,7 +90,10 @@ pub fn imprimir(caps: &ServerCapabilities) {
     if let Some(s) = &caps.anunciado.server {
         println!("  Servidor: {s}");
     }
-    println!("  Sondeado: {}", caps.probed_at.format("%Y-%m-%d %H:%M:%S UTC"));
+    println!(
+        "  Sondeado: {}",
+        caps.probed_at.format("%Y-%m-%d %H:%M:%S UTC")
+    );
     println!("{linea}\n");
 
     println!("ANUNCIADO POR EL SERVIDOR");
@@ -94,27 +105,54 @@ pub fn imprimir(caps: &ServerCapabilities) {
     fila("PROPFIND Depth 0", &r.propfind_depth0.descripcion());
     fila("PROPFIND Depth 1", &r.propfind_depth1.descripcion());
     fila("GET", &r.get.descripcion());
-    fila("GET con Range", match r.rangos {
-        SoporteRango::Soportado => "soportado (206)",
-        SoporteRango::Ignorado => "ignorado: devuelve el fichero entero",
-        SoporteRango::Desconocido => "no se pudo probar",
-    });
-    fila("ETag", if r.etag { "presente" } else { "AUSENTE: sin deteccion de cambios por contenido" });
-    fila("Last-Modified", if r.last_modified { "presente" } else { "ausente" });
+    fila(
+        "GET con Range",
+        match r.rangos {
+            SoporteRango::Soportado => "soportado (206)",
+            SoporteRango::Ignorado => "ignorado: devuelve el fichero entero",
+            SoporteRango::Desconocido => "no se pudo probar",
+        },
+    );
+    fila(
+        "ETag",
+        if r.etag {
+            "presente"
+        } else {
+            "AUSENTE: sin deteccion de cambios por contenido"
+        },
+    );
+    fila(
+        "Last-Modified",
+        if r.last_modified {
+            "presente"
+        } else {
+            "ausente"
+        },
+    );
     fila("PUT (crear)", &r.put_crear.descripcion());
-    fila("PUT (sobre existente)", match r.put_sobrescribir {
-        SemanticaSobrescritura::Sobrescribe => "sobrescribe",
-        SemanticaSobrescritura::CreaVersion => "CREA UNA VERSION NUEVA (no sobrescribe)",
-        SemanticaSobrescritura::SinEfecto => "SIN EFECTO: el GET sigue devolviendo lo viejo",
-        SemanticaSobrescritura::Desconocido => "no se pudo probar",
-    });
+    fila(
+        "PUT (sobre existente)",
+        match r.put_sobrescribir {
+            SemanticaSobrescritura::Sobrescribe => "sobrescribe",
+            SemanticaSobrescritura::CreaVersion => "CREA UNA VERSION NUEVA (no sobrescribe)",
+            SemanticaSobrescritura::SinEfecto => "SIN EFECTO: el GET sigue devolviendo lo viejo",
+            SemanticaSobrescritura::Desconocido => "no se pudo probar",
+        },
+    );
     fila("MKCOL", &r.mkcol.descripcion());
     fila("MOVE", &r.mover.descripcion());
     fila("DELETE", &r.borrar.descripcion());
     fila("PROPPATCH (fecha)", &r.proppatch_modtime.descripcion());
     fila("LOCK", &r.locks.lock.descripcion());
     if let Some(cruza) = r.locks.cruza_procesos {
-        fila("LOCK entre procesos", if cruza { "fiable" } else { "NO FIABLE: otro proceso pudo bloquear lo ya bloqueado" });
+        fila(
+            "LOCK entre procesos",
+            if cruza {
+                "fiable"
+            } else {
+                "NO FIABLE: otro proceso pudo bloquear lo ya bloqueado"
+            },
+        );
     }
     if !r.raiz.is_empty() {
         fila("Raiz", &r.raiz.join(", "));
@@ -125,7 +163,10 @@ pub fn imprimir(caps: &ServerCapabilities) {
     if d.is_empty() {
         println!("  El servidor cumple lo que anuncia.");
     } else {
-        println!("  EL SERVIDOR ANUNCIA {} CAPACIDAD(ES) QUE NO TIENE", d.len());
+        println!(
+            "  EL SERVIDOR ANUNCIA {} CAPACIDAD(ES) QUE NO TIENE",
+            d.len()
+        );
         println!("{linea}");
         for x in &d {
             println!("\n  {} — anunciado en Allow:, pero {}", x.verbo, x.real);
@@ -138,7 +179,10 @@ pub fn imprimir(caps: &ServerCapabilities) {
 
     let o = opciones_de_montaje(caps, &MountOptions::default());
     println!("MONTAJE QUE SE DEDUCE DE ESTA MEDICION\n");
-    println!("{}\n", o.linea_equivalente("iurefficient", "~/Iurefficient"));
+    println!(
+        "{}\n",
+        o.linea_equivalente("iurefficient", "~/Iurefficient")
+    );
 }
 
 fn fila(k: &str, v: &str) {
@@ -146,5 +190,9 @@ fn fila(k: &str, v: &str) {
 }
 
 fn si_vacio(s: &str) -> String {
-    if s.is_empty() { "(no lo declara)".into() } else { s.to_string() }
+    if s.is_empty() {
+        "(no lo declara)".into()
+    } else {
+        s.to_string()
+    }
 }
