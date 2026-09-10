@@ -3,8 +3,8 @@
 Monta tu instancia de Iurefficient como una unidad de tu equipo, al estilo de
 Mountain Duck. Linux, macOS y Windows.
 
-> **Estado: en desarrollo (Fase 0).** Ahora mismo funciona la sonda de
-> diagnóstico. El montaje y la interfaz gráfica están en camino.
+> **Estado: en desarrollo (Fase 1).** Ya funcionan la sonda y el montaje de solo
+> lectura desde la línea de órdenes. La interfaz gráfica está en camino.
 
 ## Por qué existe la sonda
 
@@ -33,18 +33,33 @@ lo que el servidor hace de verdad, y de esa medición deduce cómo montar la
 unidad. Si mañana el servidor arregla `DELETE`, la sonda lo detecta y la
 restricción desaparece sola.
 
-## Probar la sonda
+## Uso
 
 ```bash
 cargo build --workspace
 
-IUREDAV_PASS='iurdav_...' cargo run --bin iuredav-probe -- \
+# 1. Ver qué sabe hacer de verdad tu servidor, y guardar la conexión
+IUREDAV_PASS='iurdav_...' ./target/debug/iuredav probe \
   --url https://TU-INSTANCIA/webdav/ \
-  --user tu@correo.com
+  --user tu@correo.com \
+  --guardar-como trabajo
+
+# 2. Montarlo (Ctrl+C para desmontar)
+./target/debug/iuredav mount trabajo
+
+# 3. Gestionar conexiones
+./target/debug/iuredav perfiles
+./target/debug/iuredav olvidar trabajo
 ```
 
-Añade `--escritura` para probar también `PUT`, `MKCOL`, `MOVE`, `DELETE`,
-`PROPPATCH` y `LOCK`.
+La contraseña se guarda en el llavero del sistema, nunca en el fichero de
+perfiles. Añade `--escritura` a `probe` para comprobar también `PUT`, `MKCOL`,
+`MOVE`, `DELETE`, `PROPPATCH` y `LOCK`.
+
+**El montaje es de solo lectura mientras la sonda no confirme que el servidor
+acepta escrituras**, y aun entonces hay que pedirlo con `--escritura`. Contra
+Iurefficient eso es lo correcto: borrar y renombrar no funcionan, y cada guardado
+crea una versión nueva del documento.
 
 > **Ojo con `--escritura`:** como el servidor rechaza `DELETE`, la sonda **no
 > puede limpiar lo que crea**. Por eso escribe siempre en la misma ruta fija,
@@ -60,7 +75,7 @@ Hay un doble de pruebas que imita el comportamiento medido, mentira incluida:
 
 ```bash
 python3 tests/servidor-falso.py 8099 &
-IUREDAV_PASS='iurdav_falso' cargo run --bin iuredav-probe -- \
+IUREDAV_PASS='iurdav_falso' ./target/debug/iuredav probe \
   --url http://127.0.0.1:8099/webdav/ --user prueba@ejemplo.com --escritura
 ```
 
@@ -75,10 +90,15 @@ salida 1. Ese desacuerdo entre las dos columnas *es* la prueba de que funciona.
 | `crates/iuredav-core/src/caps.rs` | Convierte la medición en opciones de rclone. |
 | `crates/iuredav-core/src/errors.rs` | Traduce los fallos de rclone a español llano. |
 | `crates/iuredav-core/src/rclone.rs` | Supervisa el sidecar que hace el montaje. |
-| `crates/iuredav-cli` | `iuredav-probe`, la herramienta de diagnóstico. |
+| `crates/iuredav-core/src/perfiles.rs` | Conexiones guardadas, sin secretos dentro. |
+| `crates/iuredav-core/src/secretos.rs` | Contraseñas en el llavero del sistema. |
+| `crates/iuredav-cli` | El binario `iuredav`. |
 
 El montaje lo realiza [rclone](https://rclone.org) como proceso auxiliar,
-controlado por su API remota. Los nombres y tipos de las opciones salen de
+controlado por su API remota. Ni la contraseña de WebDAV ni las credenciales de
+esa API pasan por la línea de órdenes: `/proc/PID/cmdline` lo puede leer
+cualquier usuario de la máquina (permisos 444), mientras que el entorno solo su
+dueño (400). Los nombres y tipos de las opciones salen de
 `rclone rc --loopback options/get`, que es la lista autoritativa: las duraciones
 van en nanosegundos, `CacheMode` es un entero y la clave del trozo de lectura es
 `ChunkSize`. Equivocarse en cualquiera de esas tres rompe el montaje en silencio.

@@ -50,10 +50,13 @@ impl Rclone {
             .arg("rcd")
             .arg("--rc-addr")
             .arg(format!("127.0.0.1:{puerto}"))
-            .arg("--rc-user")
-            .arg(&usuario)
-            .arg("--rc-pass")
-            .arg(&password)
+            // Las credenciales de la API de control van por **entorno**, no por
+            // argv: /proc/PID/cmdline lo lee cualquier usuario de la maquina (444),
+            // mientras que /proc/PID/environ solo su dueno (400). Quien leyera esas
+            // credenciales podria hablar con la API local, que sabe montar remotos y
+            // ejecutar ordenes.
+            .env("RCLONE_RC_USER", &usuario)
+            .env("RCLONE_RC_PASS", &password)
             // Sin servir objetos por HTTP: solo queremos la API de control.
             .arg("--rc-serve=false")
             .arg("--log-level")
@@ -222,18 +225,14 @@ fn puerto_libre() -> Option<u16> {
     TcpListener::bind("127.0.0.1:0").ok()?.local_addr().ok().map(|a| a.port())
 }
 
-/// Credencial de un solo uso para la API RC local.
+/// Credencial de un solo uso para la API RC local, del generador del sistema.
+///
+/// Es un secreto de verdad —quien lo tenga puede pedirle a rclone que monte lo que
+/// quiera—, asi que sale del CSPRNG del sistema operativo y no de un hasher.
 fn token_aleatorio() -> String {
-    use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hasher};
-    // Suficiente para un secreto local y efimero, y evita arrastrar una dependencia
-    // de generacion de aleatorios solo para esto.
-    let mut s = String::new();
-    for _ in 0..4 {
-        let h = RandomState::new().build_hasher().finish();
-        s.push_str(&format!("{h:016x}"));
-    }
-    s
+    let mut b = [0u8; 32];
+    getrandom::fill(&mut b).expect("el generador de aleatorios del sistema no responde");
+    b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
 /// Ruta al rclone empaquetado; si no esta, el del sistema (util en desarrollo).
@@ -260,6 +259,20 @@ mod tests {
     fn los_tokens_no_se_repiten() {
         assert_ne!(token_aleatorio(), token_aleatorio());
         assert_eq!(token_aleatorio().len(), 64);
+    }
+
+    /// Las credenciales de la API de control no pueden acabar en la linea de
+    /// comandos: ahi las lee cualquier usuario de la maquina. Esta prueba fija esa
+    /// decision para que no se pierda en un refactor.
+    #[test]
+    fn las_credenciales_rc_no_van_en_argv() {
+        let fuente = include_str!("rclone.rs");
+        let arranque = &fuente[fuente.find("pub async fn arrancar").unwrap()
+            ..fuente.find("// El log de rclone sale por stderr").unwrap()];
+        assert!(!arranque.contains(r#".arg("--rc-user")"#), "--rc-user volvio a argv");
+        assert!(!arranque.contains(r#".arg("--rc-pass")"#), "--rc-pass volvio a argv");
+        assert!(arranque.contains(r#".env("RCLONE_RC_USER""#));
+        assert!(arranque.contains(r#".env("RCLONE_RC_PASS""#));
     }
 
     /// La opcion que impide que rclone se crea el `Allow:` del servidor tiene que

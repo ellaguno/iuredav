@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Sonda de diagnostico de IureDav"
 
 [[bin]]
-name = "iuredav-probe"
+name = "iuredav"
 path = "src/main.rs"
 
 [dependencies]

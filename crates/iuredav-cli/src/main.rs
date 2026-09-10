@@ -1,44 +1,35 @@
-//! `iuredav-probe` — ensena lo que un servidor WebDAV hace de verdad.
+//! `iuredav` — herramienta de linea de comandos de IureDav.
 //!
-//! Contrasta la cabecera `Allow:` que anuncia el servidor con el resultado de
-//! probar cada verbo. Contra Iurefficient, la prueba de que funciona es que los dos
-//! lados de la tabla **no coincidan**.
-//!
-//! La contrasena nunca se pasa por la linea de comandos si se puede evitar: usa la
-//! variable de entorno `IUREDAV_PASS`, porque `argv` es legible por cualquier otro
-//! proceso de la maquina.
+//! Existe antes que la interfaz grafica porque es lo que permite comprobar la
+//! cadena entera —sonda, derivacion de opciones, sidecar, montaje— contra un
+//! servidor real sin depender de la UI.
 
-use anyhow::{Context, Result};
-use clap::Parser;
-use iuredav_core::caps::{opciones_de_montaje, MountOptions, SemanticaSobrescritura, SoporteRango};
-use iuredav_core::probe::{Probe, RUTA_SELFTEST};
-use iuredav_core::ServerCapabilities;
+mod montar;
+mod sonda;
+
+use anyhow::{bail, Context, Result};
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "iuredav-probe", about = "Descubre las capacidades reales de un servidor WebDAV")]
-struct Args {
-    /// URL base del WebDAV, p. ej. https://instancia.iurefficient.com/webdav/
-    #[arg(long)]
-    url: String,
+#[command(name = "iuredav", version, about = "Monta un WebDAV descubriendo antes lo que sabe hacer de verdad")]
+struct Cli {
+    #[command(subcommand)]
+    orden: Orden,
+}
 
-    /// Usuario (en Iurefficient, tu correo).
-    #[arg(long)]
-    user: String,
-
-    /// Contrasena de aplicacion. Preferible por entorno: argv lo ve todo el sistema.
-    #[arg(long, env = "IUREDAV_PASS", hide_env_values = true)]
-    pass: String,
-
-    /// Ejecuta tambien la fase de escritura.
-    ///
-    /// AVISO: si el servidor no permite DELETE (Iurefficient no lo permite), el
-    /// fichero de prueba NO se puede borrar y queda en el servidor.
-    #[arg(long)]
-    escritura: bool,
-
-    /// Vuelca el informe completo como JSON.
-    #[arg(long)]
-    json: bool,
+#[derive(Subcommand)]
+enum Orden {
+    /// Descubre las capacidades reales de un servidor WebDAV.
+    Probe(sonda::Args),
+    /// Monta un perfil guardado.
+    Mount(montar::Args),
+    /// Lista los perfiles guardados.
+    Perfiles,
+    /// Elimina un perfil y su contrasena del llavero.
+    Olvidar {
+        /// Perfil a eliminar.
+        perfil: String,
+    },
 }
 
 #[tokio::main]
@@ -46,109 +37,76 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "iuredav_core=info".into()),
+                .unwrap_or_else(|_| "iuredav_core=info,iuredav=info".into()),
         )
         .with_target(false)
         .without_time()
         .init();
 
-    let args = Args::parse();
-
-    if args.escritura {
-        eprintln!("AVISO: la fase de escritura creara {RUTA_SELFTEST}.");
-        eprintln!("       Si el servidor rechaza DELETE, ese fichero quedara ahi.\n");
+    match Cli::parse().orden {
+        Orden::Probe(a) => sonda::ejecutar(a).await,
+        Orden::Mount(a) => montar::ejecutar(a).await,
+        Orden::Perfiles => listar(),
+        Orden::Olvidar { perfil } => olvidar(&perfil),
     }
+}
 
-    let probe = Probe::nuevo(&args.url, &args.user, &args.pass)?;
-    let caps = probe
-        .ejecutar(args.escritura)
-        .await
-        .context("no se pudo completar la sonda")?;
-
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&caps)?);
-    } else {
-        imprimir(&caps);
+fn listar() -> Result<()> {
+    let perfiles = iuredav_core::perfiles::cargar()?;
+    if perfiles.is_empty() {
+        println!("No hay perfiles. Crea uno con:");
+        println!("  iuredav probe --url ... --user ... --guardar-como mi-perfil");
+        return Ok(());
     }
-
-    // Codigo de salida 1 si el servidor miente: util para vigilarlo desde CI y
-    // enterarse el dia que alguien arregle (o rompa) el proveedor.
-    if !caps.discrepancias().is_empty() {
-        std::process::exit(1);
+    for p in perfiles {
+        let caps = match &p.capacidades {
+            Some(c) => format!("sondeado {}", c.probed_at.format("%Y-%m-%d")),
+            None => "sin sondear".into(),
+        };
+        println!("  {:<16} {}", p.id, p.url);
+        println!("  {:<16} monta en {} · {} · {}", "", p.punto_montaje.display(),
+            if p.escritura { "edicion" } else { "solo lectura" }, caps);
     }
     Ok(())
 }
 
-fn imprimir(caps: &ServerCapabilities) {
-    let linea = "-".repeat(72);
-    println!("\n{linea}");
-    println!("  {}", caps.url);
-    if let Some(s) = &caps.anunciado.server {
-        println!("  Servidor: {s}");
-    }
-    println!("  Sondeado: {}", caps.probed_at.format("%Y-%m-%d %H:%M:%S UTC"));
-    println!("{linea}\n");
+/// Quita el perfil y su credencial. Se borra el secreto aunque el perfil ya no
+/// exista: una credencial huerfana en el llavero no le sirve a nadie.
+fn olvidar(id: &str) -> Result<()> {
+    let usuario = iuredav_core::perfiles::buscar(id)?.map(|p| p.usuario);
+    let habia = iuredav_core::perfiles::borrar(id)?;
 
-    println!("ANUNCIADO POR EL SERVIDOR");
-    println!("  Allow: {}", si_vacio(&caps.anunciado.allow.join(", ")));
-    println!("  DAV:   {}\n", si_vacio(&caps.anunciado.dav.join(", ")));
-
-    let r = &caps.real;
-    println!("MEDIDO DE VERDAD");
-    fila("PROPFIND Depth 0", &r.propfind_depth0.descripcion());
-    fila("PROPFIND Depth 1", &r.propfind_depth1.descripcion());
-    fila("GET", &r.get.descripcion());
-    fila("GET con Range", match r.rangos {
-        SoporteRango::Soportado => "soportado (206)",
-        SoporteRango::Ignorado => "ignorado: devuelve el fichero entero",
-        SoporteRango::Desconocido => "no se pudo probar",
-    });
-    fila("ETag", if r.etag { "presente" } else { "AUSENTE: sin deteccion de cambios por contenido" });
-    fila("Last-Modified", if r.last_modified { "presente" } else { "ausente" });
-    fila("PUT (crear)", &r.put_crear.descripcion());
-    fila("PUT (sobre existente)", match r.put_sobrescribir {
-        SemanticaSobrescritura::Sobrescribe => "sobrescribe",
-        SemanticaSobrescritura::CreaVersion => "CREA UNA VERSION NUEVA (no sobrescribe)",
-        SemanticaSobrescritura::SinEfecto => "SIN EFECTO: el GET sigue devolviendo lo viejo",
-        SemanticaSobrescritura::Desconocido => "no se pudo probar",
-    });
-    fila("MKCOL", &r.mkcol.descripcion());
-    fila("MOVE", &r.mover.descripcion());
-    fila("DELETE", &r.borrar.descripcion());
-    fila("PROPPATCH (fecha)", &r.proppatch_modtime.descripcion());
-    fila("LOCK", &r.locks.lock.descripcion());
-    if let Some(cruza) = r.locks.cruza_procesos {
-        fila("LOCK entre procesos", if cruza { "fiable" } else { "NO FIABLE: otro proceso pudo bloquear lo ya bloqueado" });
+    if let Some(u) = &usuario {
+        iuredav_core::secretos::borrar(id, u)?;
     }
-    if !r.raiz.is_empty() {
-        fila("Raiz", &r.raiz.join(", "));
-    }
-
-    let d = caps.discrepancias();
-    println!("\n{linea}");
-    if d.is_empty() {
-        println!("  El servidor cumple lo que anuncia.");
+    if habia {
+        println!("Perfil '{id}' eliminado, y su contrasena con el.");
     } else {
-        println!("  EL SERVIDOR ANUNCIA {} CAPACIDAD(ES) QUE NO TIENE", d.len());
-        println!("{linea}");
-        for x in &d {
-            println!("\n  {} — anunciado en Allow:, pero {}", x.verbo, x.real);
-            println!("     {}", x.explicacion);
-        }
-        println!("\n  Un cliente que se crea ese anuncio (rclone incluido) planifica");
-        println!("  con esas capacidades y falla al ejecutar. IureDav las retira.");
+        println!("No habia ningun perfil '{id}'.");
     }
-    println!("{linea}\n");
-
-    let o = opciones_de_montaje(caps, &MountOptions::default());
-    println!("MONTAJE QUE SE DEDUCE DE ESTA MEDICION\n");
-    println!("{}\n", o.linea_equivalente("iurefficient", "~/Iurefficient"));
+    Ok(())
 }
 
-fn fila(k: &str, v: &str) {
-    println!("  {k:<24} {v}");
+/// Obtiene la contrasena sin que pase nunca por `argv`, que es legible por
+/// cualquier otro proceso de la maquina.
+pub fn contrasena(perfil_id: &str, usuario: &str, del_entorno: Option<String>) -> Result<String> {
+    if let Some(p) = del_entorno {
+        return Ok(p);
+    }
+    if let Some(p) = iuredav_core::secretos::leer(perfil_id, usuario)? {
+        return Ok(p);
+    }
+    bail!(
+        "no hay contrasena para {usuario}. Pasala en IUREDAV_PASS, o guardala en el llavero con:\n  \
+         iuredav probe --url ... --user {usuario} --guardar-como {perfil_id}"
+    )
 }
 
-fn si_vacio(s: &str) -> String {
-    if s.is_empty() { "(no lo declara)".into() } else { s.to_string() }
+pub fn confirmar(pregunta: &str) -> Result<bool> {
+    use std::io::{stdin, stdout, Write};
+    print!("{pregunta} [s/N] ");
+    stdout().flush().ok();
+    let mut r = String::new();
+    stdin().read_line(&mut r).context("no se pudo leer la respuesta")?;
+    Ok(matches!(r.trim().to_lowercase().as_str(), "s" | "si" | "sí"))
 }

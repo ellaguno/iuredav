@@ -17,3 +17,6 @@ reqwest.workspace = true
 tokio.workspace = true
 quick-xml.workspace = true
 tracing.workspace = true
+keyring.workspace = true
+directories.workspace = true
+getrandom.workspace = true
