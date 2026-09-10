@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos de la ventana principal de IureDav",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:allow-open-path",
+    "opener:allow-open-url",
+    "dialog:allow-open"
+  ]
+}

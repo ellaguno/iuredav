@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/iuredav-core", "crates/iuredav-cli"]
+members = ["crates/iuredav-core", "crates/iuredav-cli", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

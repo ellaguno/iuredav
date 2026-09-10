@@ -3,8 +3,9 @@
 Monta tu instancia de Iurefficient como una unidad de tu equipo, al estilo de
 Mountain Duck. Linux, macOS y Windows.
 
-> **Estado: en desarrollo (Fase 1).** Ya funcionan la sonda y el montaje de solo
-> lectura desde la línea de órdenes. La interfaz gráfica está en camino.
+> **Estado: en desarrollo (Fase 2).** Funcionan la sonda, el montaje de solo
+> lectura y la interfaz gráfica. Falta la bandeja del sistema, el anclado de
+> carpetas sin conexión y los instaladores de macOS y Windows.
 
 ## Por qué existe la sonda
 
@@ -111,15 +112,33 @@ van en nanosegundos, `CacheMode` es un entero y la clave del trozo de lectura es
 | macOS | servidor NFS local de rclone | **ninguno** — no hace falta macFUSE |
 | Windows | WinFsp | lo instala el propio instalador |
 
+## La aplicación de escritorio
+
+```bash
+npm install
+npm run tauri dev
+```
+
+La interfaz traduce los límites del servidor a algo accionable: en vez de
+«no permite delete, mkcol, move» dice **«no permite eliminar documentos, crear
+carpetas ni mover o renombrar; esas operaciones se hacen desde Iurefficient»**.
+La pantalla *Ver qué sabe hacer este servidor* enfrenta, fila a fila, lo que el
+servidor anuncia con lo que cumple.
+
 ## Desarrollo
 
 ```bash
-cargo test --workspace     # la lógica de capacidades y el traductor de errores
+cargo test --workspace     # capacidades, traductor de errores, perfiles
 cargo build --workspace
+npx tsc --noEmit           # el frontend, en modo estricto
+python3 scripts/generar-iconos.py   # regenera los iconos desde el código
 ```
 
-En Linux, la bandeja del sistema (Fase 1) necesita
-`libayatana-appindicator3-dev`.
+En Linux, la bandeja del sistema necesita un paquete que aún no está instalado:
+
+```bash
+sudo apt install libayatana-appindicator3-dev
+```
 
 ## Aviso sobre datos
 

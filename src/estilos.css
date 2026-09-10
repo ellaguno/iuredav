@@ -1,0 +1,156 @@
+/* Paleta tomada del icono: azul profundo y verde agua para lo que esta vivo. */
+:root {
+  --azul: #173e5c;
+  --azul-claro: #2b6288;
+  --agua: #2fa88f;
+  --ambar: #b7791f;
+  --rojo: #c0392b;
+
+  --fondo: #f4f6f8;
+  --panel: #ffffff;
+  --borde: #dde3e9;
+  --texto: #1b2733;
+  --tenue: #5f7183;
+  --sombra: 0 1px 2px rgba(23, 62, 92, .06), 0 4px 14px rgba(23, 62, 92, .07);
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --azul: #4d9bd0;
+    --azul-claro: #6fb2e0;
+    --agua: #56c5b2;
+    --ambar: #dda14a;
+    --rojo: #e8705f;
+
+    --fondo: #11181f;
+    --panel: #1a232c;
+    --borde: #2b3946;
+    --texto: #e6edf3;
+    --tenue: #9bacbd;
+    --sombra: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .25);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--texto);
+  background: var(--fondo);
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; cursor: pointer; }
+input, select { font: inherit; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+
+/* ---------------------------------------------------------------- estructura */
+
+.marco { max-width: 860px; margin: 0 auto; padding: 28px 24px 48px; }
+
+.cabecera {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 24px;
+}
+.cabecera h1 { font-size: 20px; }
+.cabecera .crece { flex: 1; }
+.cabecera svg { flex: none; }
+
+/* ------------------------------------------------------------------- botones */
+
+.btn {
+  border: 1px solid var(--borde); background: var(--panel); color: var(--texto);
+  padding: 8px 14px; border-radius: 8px; font-weight: 500;
+  transition: background .12s, border-color .12s, opacity .12s;
+}
+.btn:hover:not(:disabled) { border-color: var(--azul); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.principal { background: var(--azul); border-color: var(--azul); color: #fff; }
+.btn.principal:hover:not(:disabled) { background: var(--azul-claro); border-color: var(--azul-claro); }
+.btn.peligro:hover:not(:disabled) { border-color: var(--rojo); color: var(--rojo); }
+.btn.grande { padding: 11px 22px; font-size: 15px; }
+.btn.plano { border-color: transparent; background: transparent; color: var(--tenue); padding: 6px 10px; }
+.btn.plano:hover:not(:disabled) { color: var(--texto); background: var(--fondo); }
+
+/* ------------------------------------------------------------------ tarjetas */
+
+.tarjeta {
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: 12px; padding: 18px; box-shadow: var(--sombra);
+  margin-bottom: 14px;
+}
+.tarjeta .fila { display: flex; align-items: center; gap: 14px; }
+.tarjeta .crece { flex: 1; min-width: 0; }
+.tarjeta h2 { font-size: 16px; margin-bottom: 2px; }
+.ruta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: var(--tenue);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.pastilla {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+  background: var(--fondo); color: var(--tenue); border: 1px solid var(--borde);
+}
+.pastilla .punto { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pastilla.viva { color: var(--agua); border-color: color-mix(in srgb, var(--agua) 40%, transparent); }
+
+/* --------------------------------------------------------------------- avisos */
+
+.nota {
+  border-radius: 9px; padding: 12px 14px; font-size: 13px;
+  border: 1px solid var(--borde); background: var(--fondo);
+  margin-top: 14px;
+}
+.nota.limite { border-left: 3px solid var(--azul-claro); }
+.nota.aviso  { border-left: 3px solid var(--ambar); }
+.nota.error  { border-left: 3px solid var(--rojo); }
+.nota strong { display: block; margin-bottom: 2px; }
+.nota p { margin: 0; color: var(--tenue); }
+
+/* ------------------------------------------------------------------ formulario */
+
+.campo { margin-bottom: 16px; }
+.campo label { display: block; font-weight: 500; margin-bottom: 5px; }
+.campo input {
+  width: 100%; padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--borde); background: var(--panel); color: var(--texto);
+}
+.campo input:focus { outline: 2px solid color-mix(in srgb, var(--azul) 45%, transparent); outline-offset: 1px; }
+.campo .pista { font-size: 12px; color: var(--tenue); margin-top: 5px; }
+.campo .pista code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--fondo); padding: 1px 5px; border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------- tabla */
+
+table.caps { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.caps th {
+  text-align: left; font-weight: 600; color: var(--tenue);
+  padding: 7px 10px; border-bottom: 1px solid var(--borde); font-size: 12px;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+table.caps td { padding: 8px 10px; border-bottom: 1px solid var(--borde); }
+table.caps tr:last-child td { border-bottom: none; }
+table.caps .si { color: var(--agua); font-weight: 600; }
+table.caps .no { color: var(--tenue); }
+table.caps .mal { color: var(--rojo); font-weight: 600; }
+table.caps tr.discrepa { background: color-mix(in srgb, var(--ambar) 8%, transparent); }
+
+.vacio { text-align: center; padding: 56px 20px; color: var(--tenue); }
+.vacio h2 { font-size: 17px; margin-bottom: 6px; color: var(--texto); }
+.cargando { color: var(--tenue); padding: 20px 0; }
+.error-caja {
+  border: 1px solid color-mix(in srgb, var(--rojo) 40%, var(--borde));
+  background: color-mix(in srgb, var(--rojo) 7%, transparent);
+  border-radius: 9px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px;
+}
+.acciones { display: flex; gap: 10px; margin-top: 22px; }
+.acciones .crece { flex: 1; }

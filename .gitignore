@@ -6,6 +6,8 @@
 node_modules
 dist
 .vite
+/src-tauri/gen
+package-lock.json.bak
 
 # Binario sidecar descargado (no se versiona: ~50 MB por plataforma)
 /src-tauri/resources/rclone*

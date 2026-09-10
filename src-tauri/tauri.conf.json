@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "IureDav",
+  "version": "0.1.0",
+  "identifier": "com.iurefficient.iuredav",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "IureDav",
+        "width": 1000,
+        "height": 720,
+        "minWidth": 740,
+        "minHeight": 540,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "category": "Utility",
+    "shortDescription": "Monta tu Iurefficient como una unidad del sistema",
+    "longDescription": "IureDav monta una instancia de Iurefficient como una unidad de tu equipo. Descubre lo que el servidor sabe hacer de verdad antes de montarlo, en vez de fiarse de lo que anuncia.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["fuse3"]
+      }
+    },
+    "resources": []
+  }
+}
