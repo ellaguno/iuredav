@@ -65,8 +65,15 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(cuerpo)
 
     def rel(self):
+        """Ruta relativa a /webdav/, ya descodificada.
+
+        Descodificar aqui y no en cada verbo: los nombres de Iurefficient llevan
+        acentos y espacios, asi que llegan como %C3%A1 y %20. Olvidarlo hace que
+        PROPFIND no encuentre carpetas cuyo nombre tenga un espacio.
+        """
+        from urllib.parse import unquote
         p = self.path
-        return p[len(RAIZ):] if p.startswith(RAIZ) else None
+        return unquote(p[len(RAIZ):]) if p.startswith(RAIZ) else None
 
     def guardia(self):
         """Devuelve la ruta relativa, o None si ya se respondio con un error."""
@@ -127,8 +134,6 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if (rel := self.guardia()) is None:
             return
-        from urllib.parse import unquote
-        rel = unquote(rel)
         if rel not in DOCUMENTOS:
             return self.responder(404, "no existe")
         datos = DOCUMENTOS[rel]

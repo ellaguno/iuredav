@@ -71,6 +71,16 @@ export interface Requisito {
   url: string | null;
 }
 
+/** Progreso de la descarga de una carpeta marcada para uso sin conexión. */
+export interface AvanceAnclaje {
+  conexion: string;
+  carpeta: string;
+  archivos: number;
+  bytes: number;
+  fallidos: number;
+  terminado: boolean;
+}
+
 export interface Aviso {
   titulo: string;
   detalle: string;
@@ -107,6 +117,9 @@ export const api = {
   nombreDestino: () => invoke<string>("nombre_destino"),
   cambiarModo: (id: string, escritura: boolean) =>
     invoke<void>("cambiar_modo", { id, escritura }),
+
+  anclar: (id: string, carpeta: string) => invoke<void>("anclar", { id, carpeta }),
+  desanclar: (id: string, ruta: string) => invoke<void>("desanclar", { id, ruta }),
 
   autoarranque: () => invoke<boolean>("autoarranque"),
   fijarAutoarranque: (activo: boolean) => invoke<void>("fijar_autoarranque", { activo }),

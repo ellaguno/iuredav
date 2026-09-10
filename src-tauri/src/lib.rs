@@ -10,6 +10,7 @@ mod bandeja;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use iuredav_core::anclajes::{self, Resumen};
 use iuredav_core::caps::{opciones_de_montaje, MountOptions, ServerCapabilities};
 use iuredav_core::errors::MensajeAmistoso;
 use iuredav_core::perfiles::{self, Perfil};
@@ -256,7 +257,18 @@ async fn montar_perfil(
     let punto = perfil.punto_montaje.to_string_lossy().to_string();
     rc.montar(&id, &punto, &opciones).await.map_err(texto)?;
 
-    estado.montados.lock().await.insert(id, punto.clone());
+    estado
+        .montados
+        .lock()
+        .await
+        .insert(id.clone(), punto.clone());
+
+    // Lo anclado se recalienta al montar: la cache caduca y puede haber sido
+    // desalojada desde la ultima sesion.
+    for carpeta in perfil.anclados.clone() {
+        calentar_en_segundo_plano(app.clone(), id.clone(), punto.clone(), carpeta);
+    }
+
     Ok(punto)
 }
 
@@ -360,6 +372,117 @@ fn fijar_autoarranque(app: AppHandle, activo: bool) -> Resp<()> {
     }
 }
 
+/// Progreso de un calentamiento, para la barra de la interfaz.
+#[derive(Clone, Serialize)]
+struct AvanceAnclaje {
+    conexion: String,
+    carpeta: String,
+    archivos: usize,
+    bytes: u64,
+    fallidos: usize,
+    terminado: bool,
+}
+
+/// Marca una carpeta como disponible sin conexion y empieza a descargarla.
+///
+/// `carpeta` llega como ruta absoluta desde el selector del sistema; se guarda
+/// relativa al punto de montaje, que es lo unico estable entre sesiones.
+#[tauri::command]
+async fn anclar(
+    app: AppHandle,
+    estado: State<'_, Estado>,
+    id: String,
+    carpeta: String,
+) -> Resp<()> {
+    let punto = estado
+        .montados
+        .lock()
+        .await
+        .get(&id)
+        .cloned()
+        .ok_or("monta la conexión antes de elegir carpetas sin conexión")?;
+
+    let relativa = std::path::Path::new(&carpeta)
+        .strip_prefix(&punto)
+        .map_err(|_| format!("esa carpeta no está dentro de {punto}"))?
+        .to_string_lossy()
+        .replace('\\', "/");
+
+    if relativa.is_empty() {
+        return Err("elige una carpeta concreta, no la raíz de la unidad".into());
+    }
+
+    let mut perfil = perfiles::buscar(&id)
+        .map_err(texto)?
+        .ok_or("no existe esa conexión")?;
+    if !perfil.anclados.contains(&relativa) {
+        perfil.anclados.push(relativa.clone());
+        perfiles::upsert(perfil).map_err(texto)?;
+    }
+
+    calentar_en_segundo_plano(app, id, punto, relativa);
+    Ok(())
+}
+
+#[tauri::command]
+async fn desanclar(id: String, ruta: String) -> Resp<()> {
+    let mut perfil = perfiles::buscar(&id)
+        .map_err(texto)?
+        .ok_or("no existe esa conexión")?;
+    perfil.anclados.retain(|r| r != &ruta);
+    perfiles::upsert(perfil).map_err(texto)
+}
+
+/// Descarga una carpeta entera en segundo plano.
+///
+/// Va en un hilo aparte porque recorre y lee el arbol con llamadas bloqueantes, y
+/// en una carpeta grande eso son minutos: bloquear el runtime dejaria la ventana
+/// congelada.
+fn calentar_en_segundo_plano(app: AppHandle, conexion: String, punto: String, carpeta: String) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let ruta = std::path::PathBuf::from(&punto);
+        if !anclajes::esperar_montaje(&ruta, std::time::Duration::from_secs(20)) {
+            tracing::warn!(punto, "el montaje no respondió; no se puede precargar");
+            return;
+        }
+
+        let emitir = |r: &Resumen, terminado: bool| {
+            let _ = app.emit(
+                "iuredav://anclaje",
+                AvanceAnclaje {
+                    conexion: conexion.clone(),
+                    carpeta: carpeta.clone(),
+                    archivos: r.archivos,
+                    bytes: r.bytes,
+                    fallidos: r.fallidos,
+                    terminado,
+                },
+            );
+        };
+
+        // Se avisa cada 25 archivos: uno por archivo inundaria la ventana de eventos.
+        let mut ultimo = 0usize;
+        let resultado = anclajes::calentar(&ruta, &carpeta, |r| {
+            if r.archivos >= ultimo + 25 {
+                ultimo = r.archivos;
+                emitir(r, false);
+            }
+        });
+
+        match resultado {
+            Ok(r) => {
+                tracing::info!(
+                    carpeta,
+                    archivos = r.archivos,
+                    "carpeta disponible sin conexión"
+                );
+                emitir(&r, true);
+            }
+            Err(e) => tracing::warn!(%e, carpeta, "no se pudo precargar la carpeta"),
+        }
+    });
+}
+
 /// Terminar desde la interfaz. Desmonta antes, igual que "Salir" en la bandeja.
 #[tauri::command]
 async fn salir(app: AppHandle) {
@@ -428,6 +551,8 @@ pub fn run() {
             salir,
             autoarranque,
             fijar_autoarranque,
+            anclar,
+            desanclar,
         ])
         .on_window_event(|ventana, evento| {
             // Cerrar la ventana esconde, no termina. Lo normal en esta aplicación es

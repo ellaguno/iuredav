@@ -11,7 +11,7 @@ la unidad y qué explicarte cuando algo no se puede hacer.
 
 > **Estado: en desarrollo.** Funcionan la sonda, el montaje, la interfaz gráfica,
 > la bandeja del sistema, el autoarranque y los instaladores de las tres
-> plataformas. Falta el anclado de carpetas para trabajar sin conexión.
+> plataformas, y las carpetas disponibles sin conexión.
 >
 > Probado de verdad solo en Linux. Windows y macOS **compilan y se empaquetan en
 > integración continua**, pero nadie los ha ejecutado todavía en una máquina real.
@@ -157,6 +157,22 @@ La interfaz traduce los límites del servidor a algo accionable: en vez de
 carpetas ni mover o renombrar; esas operaciones se hacen desde Iurefficient»**.
 La pantalla *Ver qué sabe hacer este servidor* enfrenta, fila a fila, lo que el
 servidor anuncia con lo que cumple.
+
+## Carpetas sin conexión
+
+Marca una carpeta y se descarga entera para que puedas abrirla sin internet. Se
+vuelve a comprobar cada vez que montas.
+
+rclone **no tiene un «anclar» nativo**: lo que hay es una caché con caducidad y
+tamaño máximo. IureDav recorre la carpeta y lee cada archivo a través del montaje,
+que es lo que obliga al VFS a descargarlos y dejarlos en esa caché. Es una buena
+aproximación, no una garantía: **si la caché se llena, el desalojo por antigüedad
+puede expulsar contenido marcado**.
+
+Se descarta el camino alternativo —sincronizar a una carpeta local de verdad—
+precisamente por lo que mide la sonda: sin huella de contenido y sin fecha fiable,
+la comparación caería a mirar solo el tamaño, que no detecta un archivo editado que
+pesa igual.
 
 ## Vive en la bandeja
 

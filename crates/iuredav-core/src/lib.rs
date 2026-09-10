@@ -10,7 +10,9 @@
 //! * [`errors`] traduce los choques contra esos limites a mensajes comprensibles.
 //! * [`rclone`] supervisa el sidecar que realiza el montaje.
 //! * [`plataforma`] comprueba que la maquina pueda montar, antes de intentarlo.
+//! * [`anclajes`] deja carpetas disponibles sin conexion calentando la cache.
 
+pub mod anclajes;
 pub mod caps;
 pub mod dav;
 pub mod errors;

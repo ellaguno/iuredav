@@ -144,6 +144,18 @@ table.caps .no { color: var(--tenue); }
 table.caps .mal { color: var(--rojo); font-weight: 600; }
 table.caps tr.discrepa { background: color-mix(in srgb, var(--ambar) 8%, transparent); }
 
+.anclajes {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--borde);
+}
+.anclajes .titulo { font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+.anclajes .pista { color: var(--tenue); font-size: 12.5px; margin: 0; }
+.anclaje {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0; font-size: 13px;
+}
+.anclaje .ruta { flex: 1; min-width: 0; }
+.anclaje .estado { color: var(--tenue); font-size: 12px; white-space: nowrap; }
+
 .preferencia label { display: flex; gap: 11px; align-items: flex-start; cursor: pointer; }
 .preferencia input { margin-top: 3px; flex: none; accent-color: var(--azul); }
 .preferencia strong { display: block; font-weight: 600; }

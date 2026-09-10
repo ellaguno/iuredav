@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { Aviso, Conexion, Preset, Requisito, api } from "./api";
+import { open as elegirCarpeta } from "@tauri-apps/plugin-dialog";
+import { AvanceAnclaje, Aviso, Conexion, Preset, Requisito, api } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
@@ -36,6 +37,7 @@ export default function App() {
   const [destino, setDestino] = useState("Carpeta");
   const [presets, setPresets] = useState<Preset[]>([]);
   const [auto, setAuto] = useState(false);
+  const [anclando, setAnclando] = useState<Record<string, AvanceAnclaje>>({});
 
   const recargar = useCallback(async () => {
     try {
@@ -63,6 +65,31 @@ export default function App() {
     });
     return () => { void p.then((quitar) => quitar()); };
   }, []);
+
+  // Progreso de las carpetas que se están dejando disponibles sin conexión.
+  useEffect(() => {
+    const p = listen<AvanceAnclaje>("iuredav://anclaje", (e) => {
+      const a = e.payload;
+      setAnclando((prev) => ({ ...prev, [`${a.conexion}:${a.carpeta}`]: a }));
+      if (a.terminado) void recargar();
+    });
+    return () => { void p.then((quitar) => quitar()); };
+  }, [recargar]);
+
+  async function anclar(c: Conexion) {
+    const elegida = await elegirCarpeta({
+      directory: true,
+      defaultPath: c.punto_montaje,
+      title: "Elige una carpeta para tenerla sin conexión",
+    });
+    if (typeof elegida !== "string") return;
+    try {
+      await api.anclar(c.id, elegida);
+      await recargar();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function alternar(c: Conexion) {
     setOcupado(c.id);
@@ -287,6 +314,44 @@ export default function App() {
                     No permite {enumerar(c.incumple)}. Esas operaciones se hacen desde
                     Iurefficient; desde la carpeta de tu equipo no funcionan.
                   </p>
+                </div>
+              )}
+
+              {(c.anclados.length > 0 || c.montado) && (
+                <div className="anclajes">
+                  <div className="titulo">Disponible sin conexión</div>
+                  {c.anclados.length === 0 && (
+                    <p className="pista">
+                      Marca las carpetas que quieras poder abrir sin internet. Se
+                      descargan y se guardan en la caché de tu equipo.
+                    </p>
+                  )}
+                  {c.anclados.map((r) => {
+                    const a = anclando[`${c.id}:${r}`];
+                    return (
+                      <div className="anclaje" key={r}>
+                        <span className="ruta">{r}</span>
+                        <span className="estado">
+                          {a && !a.terminado
+                            ? `descargando… ${a.archivos} archivos`
+                            : a?.terminado
+                              ? `${a.archivos} archivos${a.fallidos ? `, ${a.fallidos} sin descargar` : ""}`
+                              : "lista"}
+                        </span>
+                        <button className="btn plano" onClick={async () => {
+                          await api.desanclar(c.id, r);
+                          await recargar();
+                        }}>
+                          Quitar
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {c.montado && (
+                    <button className="btn" style={{ marginTop: 8 }} onClick={() => void anclar(c)}>
+                      Añadir carpeta
+                    </button>
+                  )}
                 </div>
               )}
 
