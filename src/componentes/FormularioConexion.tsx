@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Capacidades, api } from "../api";
+import { Capacidades, Preset, api } from "../api";
 import PanelCapacidades from "./PanelCapacidades";
 
 interface Props {
@@ -13,6 +13,8 @@ const aId = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "conexion";
 
 export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [presetId, setPresetId] = useState("iurefficient");
   const [nombre, setNombre] = useState("Iurefficient");
   const [url, setUrl] = useState("");
   const [usuario, setUsuario] = useState("");
@@ -29,6 +31,12 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
     api.puntoSugerido(id).then(setPunto).catch(() => {});
   }, [id]);
 
+  useEffect(() => {
+    api.listarPresets().then(setPresets).catch(() => {});
+  }, []);
+
+  const preset = presets.find((p) => p.id === presetId);
+
   const completo = url.trim() && usuario.trim() && password;
 
   async function probar() {
@@ -37,7 +45,7 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
     setCaps(null);
     try {
       // Solo la fase de lectura: no deja rastro en el servidor.
-      setCaps(await api.probar(url.trim(), usuario.trim(), password, false));
+      setCaps(await api.probar(url.trim(), usuario.trim(), password, false, presetId));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -51,7 +59,7 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
     try {
       await api.guardar({
         id, nombre: nombre.trim(), url: url.trim(), usuario: usuario.trim(),
-        password, puntoMontaje: punto, capacidades: caps,
+        password, puntoMontaje: punto, capacidades: caps, preset: presetId,
       });
       onGuardado();
     } catch (e) {
@@ -67,6 +75,27 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
 
         <div style={{ marginTop: 16 }}>
           <div className="campo">
+            <label htmlFor="tipo">Tipo de servidor</label>
+            <select
+              id="tipo"
+              value={presetId}
+              onChange={(e) => {
+                setPresetId(e.target.value);
+                setCaps(null);
+                const p = presets.find((x) => x.id === e.target.value);
+                if (p) setNombre(p.nombre_volumen);
+              }}
+            >
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </select>
+            {preset && <div className="pista">{preset.descripcion}</div>}
+          </div>
+
+          <div className="campo">
             <label htmlFor="nombre">Nombre</label>
             <input id="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
             <div className="pista">Como quieres verla en la lista y en tu carpeta.</div>
@@ -76,9 +105,18 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
             <label htmlFor="url">Dirección del servidor</label>
             <input
               id="url" value={url} onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://tu-instancia.iurefficient.com/webdav/"
+              placeholder={
+                presetId === "iurefficient"
+                  ? "tu-instancia.iurefficient.com"
+                  : "https://nube.ejemplo.com/remote.php/dav/files/tu-usuario/"
+              }
               spellCheck={false} autoCapitalize="off"
             />
+            {presetId === "iurefficient" && (
+              <div className="pista">
+                Basta el dominio: se completa con <code>/webdav/</code>.
+              </div>
+            )}
           </div>
 
           <div className="campo">
@@ -90,17 +128,14 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
           </div>
 
           <div className="campo">
-            <label htmlFor="pass">Contraseña de aplicación</label>
+            <label htmlFor="pass">Contraseña</label>
             <input
               id="pass" type="password" value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="iurdav_…" spellCheck={false}
+              placeholder={presetId === "iurefficient" ? "iurdav_…" : "••••••••"}
+              spellCheck={false}
             />
-            <div className="pista">
-              No es la contraseña con la que entras a Iurefficient. Es una contraseña
-              de aplicación, empieza por <code>iurdav_</code> y la generas —y puedes
-              revocarla— desde tu perfil. Se guarda en el llavero de tu sistema.
-            </div>
+            <div className="pista">{preset?.pista_password ?? ""}</div>
           </div>
 
           <div className="campo">

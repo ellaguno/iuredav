@@ -2,8 +2,12 @@
 
 [![CI](https://github.com/ellaguno/iuredav/actions/workflows/ci.yml/badge.svg)](https://github.com/ellaguno/iuredav/actions/workflows/ci.yml)
 
-Monta tu instancia de Iurefficient como una unidad de tu equipo, al estilo de
-Mountain Duck. Linux, macOS y Windows.
+Monta un servidor WebDAV como una unidad de tu equipo, al estilo de Mountain Duck.
+Linux, macOS y Windows. Con un perfil optimizado para **Iurefficient**.
+
+A diferencia de otros clientes, IureDav **no se cree lo que el servidor anuncia**:
+prueba cada operación, mide lo que funciona de verdad, y de ahí deduce cómo montar
+la unidad y qué explicarte cuando algo no se puede hacer.
 
 > **Estado: en desarrollo.** Funcionan la sonda, el montaje, la interfaz gráfica
 > y los instaladores de las tres plataformas. Falta la bandeja del sistema y el
@@ -11,6 +15,16 @@ Mountain Duck. Linux, macOS y Windows.
 >
 > Probado de verdad solo en Linux. Windows y macOS **compilan y se empaquetan en
 > integración continua**, pero nadie los ha ejecutado todavía en una máquina real.
+
+## Dos tipos de servidor
+
+| Perfil | Para qué | Qué le pides |
+|---|---|---|
+| **Iurefficient** | Instancias de Iurefficient | Basta el dominio; se completa con `/webdav/`. Contraseña de aplicación `iurdav_…` |
+| **Otro servidor WebDAV** | Nextcloud, ownCloud, Synology, Seafile, `mod_dav`… | La URL completa de tu WebDAV y tu contraseña |
+
+Solo se admite autenticación **básica sobre HTTPS**. No hay soporte para NTLM
+(SharePoint) ni para flujos OAuth, y no está previsto añadirlos.
 
 ## Por qué existe la sonda
 

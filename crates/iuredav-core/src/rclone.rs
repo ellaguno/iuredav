@@ -12,6 +12,7 @@
 
 use std::net::TcpListener;
 use std::process::Stdio;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -31,6 +32,10 @@ pub const RCLONE_VERSION: &str = "1.75.1";
 
 pub struct Rclone {
     proceso: Child,
+    /// Nombre de la aplicacion web del servidor montado, para redactar los avisos.
+    /// Lo fija cada montaje: con una sola conexion es exacto, y con varias se usa
+    /// el de la ultima, que es la que el usuario esta tocando.
+    gestionar: Arc<RwLock<Option<String>>>,
     client: reqwest::Client,
     base: String,
     usuario: String,
@@ -70,12 +75,15 @@ impl Rclone {
         // El log de rclone sale por stderr. Lo leemos linea a linea y lo pasamos por
         // el traductor: de ahi salen las notificaciones que ve el usuario.
         let (tx, rx) = mpsc::channel(64);
+        let gestionar: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
         if let Some(stderr) = proceso.stderr.take() {
+            let gestionar = Arc::clone(&gestionar);
             tokio::spawn(async move {
                 let mut lineas = BufReader::new(stderr).lines();
                 while let Ok(Some(linea)) = lineas.next_line().await {
                     debug!(target: "rclone", "{linea}");
-                    if let Some(m) = traducir(&linea) {
+                    let nombre = gestionar.read().ok().and_then(|g| g.clone());
+                    if let Some(m) = traducir(&linea, nombre.as_deref()) {
                         if tx.send(m).await.is_err() {
                             break;
                         }
@@ -86,6 +94,7 @@ impl Rclone {
 
         let rc = Self {
             proceso,
+            gestionar,
             client: reqwest::Client::builder()
                 .timeout(Duration::from_secs(120))
                 .build()?,
@@ -183,6 +192,14 @@ impl Rclone {
         self.llamar("mount/mount", Value::Object(peticion)).await?;
         info!(punto, "montado");
         Ok(())
+    }
+
+    /// Fija el nombre de la aplicacion web del servidor, para que los avisos
+    /// digan donde puede el usuario hacer lo que la unidad le niega.
+    pub fn fijar_gestor(&self, nombre: Option<String>) {
+        if let Ok(mut g) = self.gestionar.write() {
+            *g = nombre;
+        }
     }
 
     /// Mecanismos de montaje que este rclone dice tener.

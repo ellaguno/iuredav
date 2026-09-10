@@ -118,11 +118,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 
 .campo { margin-bottom: 16px; }
 .campo label { display: block; font-weight: 500; margin-bottom: 5px; }
-.campo input {
+.campo input, .campo select {
   width: 100%; padding: 9px 12px; border-radius: 8px;
   border: 1px solid var(--borde); background: var(--panel); color: var(--texto);
 }
-.campo input:focus { outline: 2px solid color-mix(in srgb, var(--azul) 45%, transparent); outline-offset: 1px; }
+.campo input:focus, .campo select:focus { outline: 2px solid color-mix(in srgb, var(--azul) 45%, transparent); outline-offset: 1px; }
 .campo .pista { font-size: 12px; color: var(--tenue); margin-top: 5px; }
 .campo .pista code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

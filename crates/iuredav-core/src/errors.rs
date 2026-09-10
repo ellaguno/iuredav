@@ -99,9 +99,23 @@ fn ruta_de(linea: &str) -> Option<String> {
     Some(ruta.to_string())
 }
 
+/// Como llamar al sitio donde el usuario si puede hacer lo que la unidad le niega.
+///
+/// Contra Iurefficient se puede nombrar; contra un WebDAV cualquiera no sabemos
+/// como se llama su aplicacion web, y decir un nombre inventado seria peor que
+/// hablar en generico.
+pub fn donde(gestionar: Option<&str>) -> String {
+    match gestionar {
+        Some(n) => format!("desde {n}"),
+        None => "desde la aplicacion web de tu servidor".into(),
+    }
+}
+
 /// Traduce una linea de log de rclone. Devuelve `None` si no es nada que merezca
 /// molestar al usuario: la inmensa mayoria de las lineas no lo son.
-pub fn traducir(linea: &str) -> Option<MensajeAmistoso> {
+///
+/// `gestionar` es el nombre de la aplicacion web del servidor, si se conoce.
+pub fn traducir(linea: &str, gestionar: Option<&str>) -> Option<MensajeAmistoso> {
     let l = linea.to_ascii_lowercase();
     if !l.contains("error") && !l.contains("failed") && !l.contains("403") && !l.contains("401") {
         return None;
@@ -111,60 +125,75 @@ pub fn traducir(linea: &str) -> Option<MensajeAmistoso> {
     let status = status_de(linea);
     let verbo = verbo_de(linea);
 
-    let (titulo, detalle, severidad) = match (verbo, status) {
+    let sitio = donde(gestionar);
+    let cred_nueva = match gestionar {
+        Some(n) if n == "Iurefficient" => {
+            format!("Genera una nueva contrasena iurdav_... en {n} y vuelve a conectar.")
+        }
+        Some(n) => format!("Genera una contrasena nueva en {n} y vuelve a conectar."),
+        None => "Genera una contrasena nueva en tu servidor y vuelve a conectar.".to_string(),
+    };
+
+    let (titulo, detalle, severidad): (&str, String, Severidad) = match (verbo, status) {
         (_, Some(401)) | (_, Some(403)) if l.contains("unauthor") || l.contains("credential") => (
             "Tu contrasena de aplicacion ya no sirve",
-            "Genera una nueva contrasena iurdav_... en Iurefficient y vuelve a conectar.",
+            cred_nueva,
             Severidad::Aviso,
         ),
         (Some("DELETE"), _) => (
             "Los documentos no se eliminan desde la unidad",
-            "Este servidor no permite borrar por WebDAV. Elimina el documento desde Iurefficient.",
+            format!("Este servidor no permite borrar por WebDAV. Elimina el documento {sitio}."),
             Severidad::Limite,
         ),
         (Some("MKCOL"), _) => (
             "Las carpetas no se crean desde la unidad",
-            "La estructura de Casos y General se gestiona en Iurefficient.",
+            format!("La estructura de carpetas se gestiona {sitio}."),
             Severidad::Limite,
         ),
         (Some("MOVE"), _) => (
             "No se puede mover ni renombrar",
-            "Este servidor no soporta mover archivos. Sube el documento con el nombre definitivo.",
+            "Este servidor no soporta mover archivos. Sube el documento con el nombre definitivo."
+                .to_string(),
             Severidad::Limite,
         ),
         (Some("COPY"), _) => (
             "No se puede copiar dentro de la unidad",
-            "Copia el archivo a tu equipo y vuelve a subirlo en la carpeta de destino.",
+            "Copia el archivo a tu equipo y vuelve a subirlo en la carpeta de destino.".to_string(),
             Severidad::Limite,
         ),
         (Some("PROPPATCH"), _) => (
             "La fecha del archivo no se conserva",
-            "El servidor no permite fijar la fecha de modificacion. No afecta al contenido.",
+            "El servidor no permite fijar la fecha de modificacion. No afecta al contenido."
+                .to_string(),
             Severidad::Limite,
         ),
         (_, Some(423)) => (
             "El archivo esta en uso",
-            "Otra persona o programa lo tiene abierto. Vuelve a intentarlo en unos segundos.",
+            "Otra persona o programa lo tiene abierto. Vuelve a intentarlo en unos segundos."
+                .to_string(),
             Severidad::Aviso,
         ),
         (_, Some(401)) => (
             "Tu contrasena de aplicacion ya no sirve",
-            "Genera una nueva contrasena iurdav_... en Iurefficient y vuelve a conectar.",
+            cred_nueva,
             Severidad::Aviso,
         ),
         (_, Some(507)) => (
             "No hay espacio en el servidor",
-            "El documento no se pudo guardar. Contacta con el administrador de tu instancia.",
+            "El documento no se pudo guardar. Contacta con el administrador de tu instancia."
+                .to_string(),
             Severidad::Error,
         ),
         (Some("PUT"), _) => (
             "No se pudo guardar el documento",
-            "El cambio sigue en la cache local y se reintentara. No cierres la aplicacion.",
+            "El cambio sigue en la cache local y se reintentara. No cierres la aplicacion."
+                .to_string(),
             Severidad::Aviso,
         ),
         (_, Some(s)) if (500..=599).contains(&s) => (
             "El servidor no responde bien",
-            "Puede ser una interrupcion temporal. La unidad reintentara automaticamente.",
+            "Puede ser una interrupcion temporal. La unidad reintentara automaticamente."
+                .to_string(),
             Severidad::Error,
         ),
         _ => return None,
@@ -172,7 +201,7 @@ pub fn traducir(linea: &str) -> Option<MensajeAmistoso> {
 
     Some(MensajeAmistoso {
         titulo: titulo.to_string(),
-        detalle: detalle.to_string(),
+        detalle,
         severidad,
         ruta,
     })
@@ -187,7 +216,7 @@ mod tests {
     #[test]
     fn traduce_el_403_al_borrar() {
         let l = r#"2026/09/09 19:10:00 ERROR : General/contrato.docx: Failed to remove: Delete "https://x/webdav/General/contrato.docx": 403 Forbidden"#;
-        let m = traducir(l).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
         assert_eq!(m.severidad, Severidad::Limite);
         assert!(m.titulo.contains("no se eliminan"));
         assert_eq!(m.ruta.as_deref(), Some("General/contrato.docx"));
@@ -196,7 +225,7 @@ mod tests {
     #[test]
     fn traduce_el_502_al_mover() {
         let l = "2026/09/09 19:10:00 ERROR : Casos/A/x.pdf: Failed to move: 502 Bad Gateway";
-        let m = traducir(l).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
         assert!(m.titulo.contains("mover"));
         assert_eq!(m.severidad, Severidad::Limite);
     }
@@ -204,14 +233,14 @@ mod tests {
     #[test]
     fn traduce_el_403_al_crear_carpeta() {
         let l = "2026/09/09 19:10:00 ERROR : General/Nueva: Failed to mkdir: 403 Forbidden";
-        let m = traducir(l).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
         assert!(m.titulo.contains("carpetas"));
     }
 
     #[test]
     fn el_401_pide_una_contrasena_nueva() {
         let l = "2026/09/09 19:10:00 ERROR : couldn't list files: 401 Unauthorized";
-        let m = traducir(l).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
         assert_eq!(m.severidad, Severidad::Aviso);
         assert!(m.detalle.contains("iurdav_"));
     }
@@ -222,7 +251,7 @@ mod tests {
     #[test]
     fn traduce_el_fallo_real_de_dirmove() {
         let l = "2026/09/09 19:26:20 ERROR : webdav root 'General/demo2.txt': Server side directory move failed: DirMove MOVE call failed: puerta de enlace incorrecta: 502 Bad Gateway";
-        let m = traducir(l).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
         assert!(
             m.titulo.contains("mover"),
             "titulo inesperado: {}",
@@ -233,9 +262,38 @@ mod tests {
 
     #[test]
     fn el_ruido_normal_no_molesta_al_usuario() {
-        assert!(traducir("2026/09/09 19:10:00 INFO  : General/x.docx: Copied (new)").is_none());
-        assert!(traducir("2026/09/09 19:10:00 DEBUG : vfs cache: cleaned").is_none());
-        assert!(traducir("Transferred: 12.4 MiB / 12.4 MiB, 100%").is_none());
+        assert!(traducir(
+            "2026/09/09 19:10:00 INFO  : General/x.docx: Copied (new)",
+            None
+        )
+        .is_none());
+        assert!(traducir("2026/09/09 19:10:00 DEBUG : vfs cache: cleaned", None).is_none());
+        assert!(traducir("Transferred: 12.4 MiB / 12.4 MiB, 100%", None).is_none());
+    }
+
+    /// Contra un WebDAV cualquiera no sabemos como se llama su aplicacion web, asi
+    /// que nombrar Iurefficient seria desconcertante.
+    #[test]
+    fn en_un_servidor_ajeno_no_se_nombra_iurefficient() {
+        let l = r#"2026/09/09 19:10:00 ERROR : doc.pdf: Failed to remove: 403 Forbidden"#;
+        let generico = traducir(l, None).unwrap();
+        assert!(
+            !generico.detalle.contains("Iurefficient"),
+            "{}",
+            generico.detalle
+        );
+        assert!(
+            generico.detalle.contains("tu servidor"),
+            "{}",
+            generico.detalle
+        );
+
+        let propio = traducir(l, Some("Iurefficient")).unwrap();
+        assert!(
+            propio.detalle.contains("Iurefficient"),
+            "{}",
+            propio.detalle
+        );
     }
 
     #[test]

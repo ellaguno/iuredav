@@ -11,10 +11,11 @@ use iuredav_core::caps::{opciones_de_montaje, MountOptions, ServerCapabilities};
 use iuredav_core::errors::MensajeAmistoso;
 use iuredav_core::perfiles::{self, Perfil};
 use iuredav_core::plataforma::{self, Requisito};
+use iuredav_core::presets::Preset;
 use iuredav_core::probe::Probe;
 use iuredav_core::rclone::{ruta_binario, Rclone};
 use iuredav_core::secretos;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 
@@ -70,16 +71,26 @@ async fn probar(
     usuario: String,
     password: String,
     escritura: bool,
+    preset: String,
 ) -> Resp<ServerCapabilities> {
-    Probe::nuevo(&url, &usuario, &password)
+    let p = Preset::por_id(&preset);
+    Probe::con_preset(&p.normalizar_url(&url), &usuario, &password, p)
         .map_err(texto)?
         .ejecutar(escritura)
         .await
         .map_err(texto)
 }
 
+/// Tipos de servidor entre los que puede elegir el usuario.
 #[tauri::command]
-async fn guardar_conexion(
+fn listar_presets() -> Vec<Preset> {
+    Preset::todos()
+}
+
+/// Los datos de una conexion, tal y como los manda el formulario.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DatosConexion {
     id: String,
     nombre: String,
     url: String,
@@ -87,20 +98,29 @@ async fn guardar_conexion(
     password: String,
     punto_montaje: String,
     capacidades: Option<ServerCapabilities>,
-) -> Resp<()> {
-    let mut p = perfiles::buscar(&id)
+    preset: String,
+}
+
+#[tauri::command]
+async fn guardar_conexion(datos: DatosConexion) -> Resp<()> {
+    let tipo = Preset::por_id(&datos.preset);
+    let url = tipo.normalizar_url(&datos.url);
+
+    let mut p = perfiles::buscar(&datos.id)
         .map_err(texto)?
-        .unwrap_or_else(|| Perfil::nuevo(&id, &url, &usuario));
-    p.nombre = nombre;
+        .unwrap_or_else(|| Perfil::con_preset(&datos.id, &url, &datos.usuario, &tipo));
+    p.nombre = datos.nombre;
+    p.preset = tipo.id.clone();
     p.url = url;
-    p.usuario = usuario.clone();
-    p.punto_montaje = punto_montaje.into();
-    if capacidades.is_some() {
-        p.capacidades = capacidades;
+    p.usuario = datos.usuario.clone();
+    p.punto_montaje = datos.punto_montaje.into();
+    if datos.capacidades.is_some() {
+        p.capacidades = datos.capacidades;
     }
     perfiles::upsert(p).map_err(texto)?;
+
     // La contrasena nunca entra en el perfil: va al llavero del sistema.
-    secretos::guardar(&id, &usuario, &password).map_err(texto)
+    secretos::guardar(&datos.id, &datos.usuario, &datos.password).map_err(texto)
 }
 
 #[tauri::command]
@@ -152,7 +172,7 @@ async fn montar(
     let caps = match perfil.capacidades.clone() {
         Some(c) => c,
         None => {
-            let c = Probe::nuevo(&perfil.url, &perfil.usuario, &password)
+            let c = Probe::con_preset(&perfil.url, &perfil.usuario, &password, perfil.preset())
                 .map_err(texto)?
                 .ejecutar(false)
                 .await
@@ -185,6 +205,7 @@ async fn montar(
         .as_ref()
         .ok_or("el sidecar de rclone no esta disponible")?;
 
+    rc.fijar_gestor(perfil.preset().donde_gestionar.clone());
     rc.crear_remoto(&id, &perfil.url, &perfil.usuario, &password)
         .await
         .map_err(texto)?;
@@ -309,6 +330,7 @@ pub fn run() {
             comprobar_sistema,
             nombre_destino,
             cambiar_modo,
+            listar_presets,
         ])
         .on_window_event(|ventana, evento| {
             // Cerrar la ventana tiene que desmontar: dejar un punto de montaje
@@ -326,4 +348,53 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("no se pudo arrancar IureDav");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// El puente con TypeScript no lo comprueba ningun compilador: si un nombre de
+    /// campo se desvia, guardar una conexion falla solo en tiempo de ejecucion, y
+    /// solo al pulsar el boton. Esta prueba fija la forma exacta del objeto que
+    /// manda `src/api.ts`.
+    #[test]
+    fn el_formulario_encaja_con_lo_que_espera_rust() {
+        let del_frontend = serde_json::json!({
+            "id": "trabajo",
+            "nombre": "Iurefficient",
+            "url": "https://x.ejemplo.com",
+            "usuario": "ana@despacho.com",
+            "password": "iurdav_secreto",
+            "puntoMontaje": "/home/ana/Iurefficient",
+            "capacidades": null,
+            "preset": "iurefficient"
+        });
+
+        let d: DatosConexion =
+            serde_json::from_value(del_frontend).expect("api.ts y DatosConexion no encajan");
+        assert_eq!(d.punto_montaje, "/home/ana/Iurefficient");
+        assert_eq!(d.preset, "iurefficient");
+        assert!(d.capacidades.is_none());
+    }
+
+    /// La estructura que viaja de vuelta tiene que llevar el campo `preset`, o la
+    /// interfaz no sabria de que tipo es cada conexion.
+    #[test]
+    fn la_vista_de_conexion_lleva_el_tipo_de_servidor() {
+        let v = VistaConexion {
+            perfil: Perfil::nuevo("x", "https://a.test/", "u@e.c"),
+            montado: false,
+            incumple: vec!["DELETE".into()],
+        };
+        let j = serde_json::to_value(&v).unwrap();
+        assert_eq!(
+            j["preset"], "iurefficient",
+            "el perfil se aplana en la vista"
+        );
+        assert_eq!(j["montado"], false);
+        assert_eq!(j["incumple"][0], "DELETE");
+        // Y no puede llevar la contrasena, que vive en el llavero.
+        assert!(j.get("password").is_none());
+    }
 }

@@ -16,10 +16,12 @@ pub mod dav;
 pub mod errors;
 pub mod perfiles;
 pub mod plataforma;
+pub mod presets;
 pub mod probe;
 pub mod rclone;
 pub mod secretos;
 
 pub use caps::{opciones_de_montaje, MountOptions, OpcionesRclone, ServerCapabilities, Verdict};
 pub use perfiles::Perfil;
+pub use presets::Preset;
 pub use probe::Probe;

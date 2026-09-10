@@ -4,14 +4,19 @@ use anyhow::{Context, Result};
 use clap::Args as ClapArgs;
 use iuredav_core::caps::{opciones_de_montaje, MountOptions, SemanticaSobrescritura, SoporteRango};
 use iuredav_core::perfiles::{self, Perfil};
-use iuredav_core::probe::{Probe, RUTA_SELFTEST};
+use iuredav_core::presets::Preset;
+use iuredav_core::probe::Probe;
 use iuredav_core::{secretos, ServerCapabilities};
 
 #[derive(ClapArgs)]
 pub struct Args {
-    /// URL base del WebDAV, p. ej. https://instancia/webdav/
+    /// URL del servidor. Con el perfil de Iurefficient basta el dominio.
     #[arg(long)]
     pub url: String,
+
+    /// Tipo de servidor: `iurefficient` u `otro` para cualquier WebDAV.
+    #[arg(long, default_value = "iurefficient", value_parser = ["iurefficient", "otro", "generico"])]
+    pub servidor: String,
 
     /// Usuario (en Iurefficient, tu correo).
     #[arg(long)]
@@ -42,8 +47,15 @@ pub struct Args {
 }
 
 pub async fn ejecutar(args: Args) -> Result<()> {
+    let preset = Preset::por_id(if args.servidor == "iurefficient" {
+        "iurefficient"
+    } else {
+        "generico"
+    });
+    let url = preset.normalizar_url(&args.url);
+
     if args.escritura {
-        eprintln!("AVISO: se creara {RUTA_SELFTEST} en el servidor.");
+        eprintln!("AVISO: se creara {} en el servidor.", preset.ruta_selftest);
         eprintln!("       Si el servidor rechaza DELETE, ese fichero quedara ahi.");
         if !args.si && !crate::confirmar("¿Continuar?")? {
             eprintln!("Cancelado. Sin --escritura la sonda no deja rastro.");
@@ -51,7 +63,7 @@ pub async fn ejecutar(args: Args) -> Result<()> {
         }
     }
 
-    let probe = Probe::nuevo(&args.url, &args.user, &args.pass)?;
+    let probe = Probe::con_preset(&url, &args.user, &args.pass, preset.clone())?;
     let caps = probe
         .ejecutar(args.escritura)
         .await

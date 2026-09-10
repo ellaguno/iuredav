@@ -36,11 +36,25 @@ export interface Capacidades {
   sonda_escritura: boolean;
 }
 
+export interface Preset {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  sufijo_url: string | null;
+  ruta_selftest: string;
+  carpeta_muestra: string | null;
+  nombre_volumen: string;
+  /** Nombre de la aplicación web del servidor, si se conoce. */
+  donde_gestionar: string | null;
+  pista_password: string;
+}
+
 export interface Conexion {
   id: string;
   nombre: string;
   url: string;
   usuario: string;
+  preset: string;
   punto_montaje: string;
   escritura: boolean;
   anclados: string[];
@@ -67,10 +81,12 @@ export interface Aviso {
 export const api = {
   listar: () => invoke<Conexion[]>("listar_conexiones"),
 
-  probar: (url: string, usuario: string, password: string, escritura: boolean) =>
-    invoke<Capacidades>("probar", { url, usuario, password, escritura }),
+  probar: (url: string, usuario: string, password: string, escritura: boolean, preset: string) =>
+    invoke<Capacidades>("probar", { url, usuario, password, escritura, preset }),
 
-  guardar: (c: {
+  listarPresets: () => invoke<Preset[]>("listar_presets"),
+
+  guardar: (datos: {
     id: string;
     nombre: string;
     url: string;
@@ -78,16 +94,8 @@ export const api = {
     password: string;
     puntoMontaje: string;
     capacidades: Capacidades | null;
-  }) =>
-    invoke<void>("guardar_conexion", {
-      id: c.id,
-      nombre: c.nombre,
-      url: c.url,
-      usuario: c.usuario,
-      password: c.password,
-      puntoMontaje: c.puntoMontaje,
-      capacidades: c.capacidades,
-    }),
+    preset: string;
+  }) => invoke<void>("guardar_conexion", { datos }),
 
   olvidar: (id: string) => invoke<void>("olvidar_conexion", { id }),
   montar: (id: string, escritura: boolean) => invoke<string>("montar", { id, escritura }),

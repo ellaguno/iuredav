@@ -55,7 +55,7 @@ pub async fn ejecutar(args: Args) -> Result<()> {
         Some(c) => c,
         None => {
             println!("El perfil no esta sondeado. Midiendo capacidades (solo lectura)...");
-            let c = Probe::nuevo(&perfil.url, &perfil.usuario, &password)?
+            let c = Probe::con_preset(&perfil.url, &perfil.usuario, &password, perfil.preset())?
                 .ejecutar(false)
                 .await
                 .context("no se pudo sondear el servidor")?;

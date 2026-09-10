@@ -22,13 +22,12 @@ use crate::caps::{
     Anunciado, InformeLocks, SemanticaSobrescritura, ServerCapabilities, SoporteRango, Verdict,
 };
 use crate::dav::{metodo, parse_multistatus, DavEntry};
+use crate::presets::Preset;
 
-/// Ruta fija de la sonda de escritura. Fija a proposito: como no se puede borrar,
-/// reutilizarla convierte cada diagnostico en una version mas del mismo documento
-/// en lugar de en un fichero huerfano nuevo.
+/// Ruta de la sonda de escritura del perfil de Iurefficient. Se conserva como
+/// constante porque la CLI la nombra en su aviso; las rutas reales salen del
+/// [`Preset`], para que la misma sonda sirva con cualquier servidor.
 pub const RUTA_SELFTEST: &str = "General/.iuredav-selftest.txt";
-const RUTA_SELFTEST_MOVIDO: &str = "General/.iuredav-selftest-movido.txt";
-const RUTA_SELFTEST_DIR: &str = "General/.iuredav-selftest-dir/";
 
 const PROPFIND_BODY: &str = r#"<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:"><D:prop>
@@ -47,6 +46,7 @@ pub struct Probe {
     base: Url,
     usuario: String,
     password: String,
+    preset: Preset,
 }
 
 /// Clasifica un codigo de estado. La distincion importa: un 403 es un "no"
@@ -67,7 +67,12 @@ fn clasificar(status: StatusCode) -> Verdict {
 }
 
 impl Probe {
+    /// Sonda con el perfil de Iurefficient. Atajo para la CLI y los tests.
     pub fn nuevo(url: &str, usuario: &str, password: &str) -> Result<Self> {
+        Self::con_preset(url, usuario, password, Preset::iurefficient())
+    }
+
+    pub fn con_preset(url: &str, usuario: &str, password: &str, preset: Preset) -> Result<Self> {
         let mut base = url.trim().to_string();
         if !base.ends_with('/') {
             base.push('/');
@@ -81,7 +86,24 @@ impl Probe {
             base,
             usuario: usuario.to_string(),
             password: password.to_string(),
+            preset,
         })
+    }
+
+    /// Carpeta de prueba para MKCOL, junto al fichero de diagnostico.
+    fn ruta_dir_prueba(&self) -> String {
+        format!(
+            "{}-dir/",
+            self.preset.ruta_selftest.trim_end_matches(".txt")
+        )
+    }
+
+    /// Destino de prueba para MOVE, junto al fichero de diagnostico.
+    fn ruta_movido(&self) -> String {
+        format!(
+            "{}-movido.txt",
+            self.preset.ruta_selftest.trim_end_matches(".txt")
+        )
     }
 
     fn url(&self, rel: &str) -> Result<Url> {
@@ -106,7 +128,10 @@ impl Probe {
         self.fase_lectura(&mut caps).await?;
 
         if con_escritura {
-            info!("fase de escritura: se escribira en {RUTA_SELFTEST} y NO se podra borrar si DELETE da 403");
+            info!(
+                ruta = %self.preset.ruta_selftest,
+                "fase de escritura: si DELETE da 403, el fichero de prueba quedara en el servidor"
+            );
             self.fase_escritura(&mut caps).await;
             caps.sonda_escritura = true;
         }
@@ -169,7 +194,7 @@ impl Probe {
         // 4. Un fichero real para probar GET y Range. Se busca dentro de `General/`,
         //    que es el arbol comun; nunca dentro de `Casos/`, para no tocar
         //    documentos de clientes.
-        let fichero = self.buscar_fichero("General/").await;
+        let fichero = self.buscar_fichero(self.preset.carpeta_muestra()).await;
 
         if let Some(f) = &fichero {
             caps.real.etag = f.etag.is_some();
@@ -178,7 +203,10 @@ impl Probe {
             caps.real.get = get;
             caps.real.rangos = rangos;
         } else {
-            info!("no se encontro ningun fichero en General/: no se pueden probar GET ni Range");
+            info!(
+                carpeta = self.preset.carpeta_muestra(),
+                "no se encontro ningun fichero: no se pueden probar GET ni Range"
+            );
         }
 
         Ok(())
@@ -268,7 +296,8 @@ impl Probe {
     async fn fase_escritura(&self, caps: &mut ServerCapabilities) {
         let r = &mut caps.real;
 
-        r.put_crear = self.probar_put(RUTA_SELFTEST, b"iuredav selftest v1").await;
+        let selftest = self.preset.ruta_selftest.clone();
+        r.put_crear = self.probar_put(&selftest, b"iuredav selftest v1").await;
 
         if r.put_crear.usable() {
             r.put_sobrescribir = self.probar_sobrescritura().await;
@@ -276,13 +305,13 @@ impl Probe {
             r.locks = self.probar_locks().await;
         }
 
-        r.mkcol = self.probar_simple("MKCOL", RUTA_SELFTEST_DIR).await;
+        r.mkcol = self.probar_simple("MKCOL", &self.ruta_dir_prueba()).await;
 
         if r.put_crear.usable() {
             r.mover = self.probar_move().await;
-            r.borrar = self.probar_simple("DELETE", RUTA_SELFTEST).await;
+            r.borrar = self.probar_simple("DELETE", &selftest).await;
             if !r.borrar.usable() {
-                warn!("DELETE no funciona: {RUTA_SELFTEST} queda en el servidor (esperado)");
+                warn!("DELETE no funciona: {selftest} queda en el servidor (esperado)");
             }
         }
     }
@@ -321,11 +350,12 @@ impl Probe {
     /// medir aqui es el caso patologico: que el GET siga devolviendo lo viejo.
     async fn probar_sobrescritura(&self) -> SemanticaSobrescritura {
         const NUEVO: &[u8] = b"iuredav selftest v2 - contenido distinto";
-        if !self.probar_put(RUTA_SELFTEST, NUEVO).await.usable() {
+        let selftest = &self.preset.ruta_selftest;
+        if !self.probar_put(selftest, NUEVO).await.usable() {
             return SemanticaSobrescritura::Desconocido;
         }
 
-        let leido = match self.peticion("GET", RUTA_SELFTEST).await {
+        let leido = match self.peticion("GET", selftest).await {
             Ok(b) => match b.send().await {
                 Ok(r) => r.text().await.unwrap_or_default(),
                 Err(_) => return SemanticaSobrescritura::Desconocido,
@@ -352,7 +382,7 @@ impl Probe {
 <D:getlastmodified>Wed, 01 Jan 2025 00:00:00 GMT</D:getlastmodified>
 </D:prop></D:set></D:propertyupdate>"#;
 
-        let r = match self.peticion("PROPPATCH", RUTA_SELFTEST).await {
+        let r = match self.peticion("PROPPATCH", &self.preset.ruta_selftest).await {
             Ok(b) => {
                 b.header("Content-Type", "application/xml; charset=utf-8")
                     .body(BODY)
@@ -390,7 +420,8 @@ impl Probe {
     }
 
     async fn probar_move(&self) -> Verdict {
-        let destino = match self.url(RUTA_SELFTEST_MOVIDO) {
+        let movido = self.ruta_movido();
+        let destino = match self.url(&movido) {
             Ok(u) => u.to_string(),
             Err(e) => {
                 return Verdict::Error {
@@ -399,7 +430,7 @@ impl Probe {
             }
         };
 
-        let v = match self.peticion("MOVE", RUTA_SELFTEST).await {
+        let v = match self.peticion("MOVE", &self.preset.ruta_selftest).await {
             Ok(b) => match b
                 .header("Destination", &destino)
                 .header("Overwrite", "T")
@@ -422,10 +453,10 @@ impl Probe {
         // desordenado, y para que el DELETE de despues encuentre el fichero.
         if v.usable() {
             let origen = self
-                .url(RUTA_SELFTEST)
+                .url(&self.preset.ruta_selftest)
                 .map(|u| u.to_string())
                 .unwrap_or_default();
-            if let Ok(b) = self.peticion("MOVE", RUTA_SELFTEST_MOVIDO).await {
+            if let Ok(b) = self.peticion("MOVE", &movido).await {
                 let _ = b
                     .header("Destination", origen)
                     .header("Overwrite", "T")
@@ -441,7 +472,7 @@ impl Probe {
     /// y corre con `gunicorn --workers 3`, asi que cada worker tiene su propia tabla.
     /// Eso es justo lo que hace fallar a Office y a Finder de forma intermitente.
     async fn probar_locks(&self) -> InformeLocks {
-        let primero = match self.peticion("LOCK", RUTA_SELFTEST).await {
+        let primero = match self.peticion("LOCK", &self.preset.ruta_selftest).await {
             Ok(b) => {
                 b.header("Content-Type", "application/xml; charset=utf-8")
                     .header("Timeout", "Second-60")
@@ -519,7 +550,7 @@ impl Probe {
 
         // Soltamos el lock para no dejar el fichero bloqueado 60 s.
         if let Some(t) = token {
-            if let Ok(b) = self.peticion("UNLOCK", RUTA_SELFTEST).await {
+            if let Ok(b) = self.peticion("UNLOCK", &self.preset.ruta_selftest).await {
                 let _ = b.header("Lock-Token", t).send().await;
             }
         }

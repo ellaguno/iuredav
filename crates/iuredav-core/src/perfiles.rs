@@ -11,6 +11,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::caps::ServerCapabilities;
+use crate::presets::Preset;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Perfil {
@@ -19,6 +20,10 @@ pub struct Perfil {
     /// URL base del WebDAV, con barra final.
     pub url: String,
     pub usuario: String,
+    /// Tipo de servidor: decide donde escribe la sonda y como se redactan los
+    /// avisos. Los perfiles anteriores a este campo son de Iurefficient.
+    #[serde(default = "preset_por_defecto")]
+    pub preset: String,
     pub punto_montaje: PathBuf,
     /// Modo edicion. Por defecto `false`.
     #[serde(default)]
@@ -32,12 +37,24 @@ pub struct Perfil {
 }
 
 impl Perfil {
+    pub fn preset(&self) -> Preset {
+        Preset::por_id(&self.preset)
+    }
+}
+
+fn preset_por_defecto() -> String {
+    "iurefficient".to_string()
+}
+
+impl Perfil {
     pub fn nuevo(id: &str, url: &str, usuario: &str) -> Self {
-        let mut url = url.trim().to_string();
-        if !url.ends_with('/') {
-            url.push('/');
-        }
+        Self::con_preset(id, url, usuario, &Preset::iurefficient())
+    }
+
+    pub fn con_preset(id: &str, url: &str, usuario: &str, preset: &Preset) -> Self {
+        let url = preset.normalizar_url(url);
         Self {
+            preset: preset.id.clone(),
             id: id.to_string(),
             nombre: id.to_string(),
             url,
@@ -190,6 +207,16 @@ mod tests {
         assert!(e.to_string().contains("no esta vacia"));
 
         let _ = fs::remove_dir_all(&d);
+    }
+
+    /// Un perfil guardado antes de que existiera el campo `preset` tiene que
+    /// seguir cargando, y ser de Iurefficient.
+    #[test]
+    fn los_perfiles_antiguos_siguen_abriendo() {
+        let json = r#"{"id":"x","nombre":"x","url":"https://a.test/webdav/","usuario":"u@e.c",
+                       "punto_montaje":"/home/u/X"}"#;
+        let p: Perfil = serde_json::from_str(json).expect("deberia cargar sin el campo preset");
+        assert_eq!(p.preset, "iurefficient");
     }
 
     #[test]
