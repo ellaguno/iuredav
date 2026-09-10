@@ -104,8 +104,8 @@ impl Rclone {
         };
 
         rc.esperar_a_que_responda().await?;
-        let v = rc.llamar("core/version", json!({})).await?;
-        info!(version = ?v.get("version"), "sidecar rclone listo");
+        let v = rc.llamar("core/versión", json!({})).await?;
+        info!(version = ?v.get("versión"), "sidecar rclone listo");
 
         Ok((rc, rx))
     }
@@ -388,7 +388,7 @@ mod tests {
         let e = elegir_tipo(&[]).unwrap_err().to_string();
         assert!(
             e.contains("WinFsp"),
-            "el error deberia orientar sobre la causa: {e}"
+            "el error debería orientar sobre la causa: {e}"
         );
     }
 

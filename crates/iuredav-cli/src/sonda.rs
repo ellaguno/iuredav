@@ -56,7 +56,7 @@ pub async fn ejecutar(args: Args) -> Result<()> {
 
     if args.escritura {
         eprintln!("AVISO: se creara {} en el servidor.", preset.ruta_selftest);
-        eprintln!("       Si el servidor rechaza DELETE, ese fichero quedara ahi.");
+        eprintln!("       Si el servidor rechaza DELETE, ese fichero quedará ahi.");
         if !args.si && !crate::confirmar("¿Continuar?")? {
             eprintln!("Cancelado. Sin --escritura la sonda no deja rastro.");
             return Ok(());
@@ -83,7 +83,7 @@ pub async fn ejecutar(args: Args) -> Result<()> {
         p.capacidades = Some(caps.clone());
         perfiles::upsert(p)?;
         secretos::guardar(id, &args.user, &args.pass)?;
-        println!("Perfil '{id}' guardado. La contrasena esta en el llavero del sistema.");
+        println!("Perfil '{id}' guardado. La contraseña esta en el llavero del sistema.");
         println!("Ya puedes montarlo con:  iuredav mount {id}");
     }
 
@@ -130,7 +130,7 @@ pub fn imprimir(caps: &ServerCapabilities) {
         if r.etag {
             "presente"
         } else {
-            "AUSENTE: sin deteccion de cambios por contenido"
+            "AUSENTE: sin detección de cambios por contenido"
         },
     );
     fila(
@@ -146,7 +146,7 @@ pub fn imprimir(caps: &ServerCapabilities) {
         "PUT (sobre existente)",
         match r.put_sobrescribir {
             SemanticaSobrescritura::Sobrescribe => "sobrescribe",
-            SemanticaSobrescritura::CreaVersion => "CREA UNA VERSION NUEVA (no sobrescribe)",
+            SemanticaSobrescritura::CreaVersion => "CREA UNA VERSIÓN NUEVA (no sobrescribe)",
             SemanticaSobrescritura::SinEfecto => "SIN EFECTO: el GET sigue devolviendo lo viejo",
             SemanticaSobrescritura::Desconocido => "no se pudo probar",
         },
@@ -167,7 +167,7 @@ pub fn imprimir(caps: &ServerCapabilities) {
         );
     }
     if !r.raiz.is_empty() {
-        fila("Raiz", &r.raiz.join(", "));
+        fila("Raíz", &r.raiz.join(", "));
     }
 
     let d = caps.discrepancias();
@@ -190,7 +190,7 @@ pub fn imprimir(caps: &ServerCapabilities) {
     println!("{linea}\n");
 
     let o = opciones_de_montaje(caps, &MountOptions::default());
-    println!("MONTAJE QUE SE DEDUCE DE ESTA MEDICION\n");
+    println!("MONTAJE QUE SE DEDUCE DE ESTA MEDICIÓN\n");
     println!(
         "{}\n",
         o.linea_equivalente("iurefficient", "~/Iurefficient")

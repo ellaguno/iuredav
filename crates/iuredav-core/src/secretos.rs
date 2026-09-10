@@ -20,7 +20,7 @@ fn entrada(perfil_id: &str, usuario: &str) -> Result<Entry> {
 pub fn guardar(perfil_id: &str, usuario: &str, password: &str) -> Result<()> {
     entrada(perfil_id, usuario)?
         .set_password(password)
-        .context("no se pudo guardar la contrasena en el llavero")
+        .context("no se pudo guardar la contraseña en el llavero")
 }
 
 /// `Ok(None)` si no hay nada guardado, que es distinto de que el llavero falle.

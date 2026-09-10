@@ -89,7 +89,7 @@ fn nombre_bonito(id: &str) -> String {
 
 pub fn directorio_config() -> Result<PathBuf> {
     let d = directories::ProjectDirs::from("com", "Iurefficient", "IureDav")
-        .context("no se pudo determinar el directorio de configuracion")?;
+        .context("no se pudo determinar el directorio de configuración")?;
     let d = d.config_dir().to_path_buf();
     fs::create_dir_all(&d).with_context(|| format!("no se pudo crear {}", d.display()))?;
     Ok(d)
@@ -198,7 +198,7 @@ mod tests {
         let d = std::env::temp_dir().join(format!("iuredav-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&d);
 
-        preparar_punto(&d).expect("deberia crearla");
+        preparar_punto(&d).expect("debería crearla");
         assert!(d.is_dir());
         preparar_punto(&d).expect("vacia: vale");
 
@@ -215,7 +215,7 @@ mod tests {
     fn los_perfiles_antiguos_siguen_abriendo() {
         let json = r#"{"id":"x","nombre":"x","url":"https://a.test/webdav/","usuario":"u@e.c",
                        "punto_montaje":"/home/u/X"}"#;
-        let p: Perfil = serde_json::from_str(json).expect("deberia cargar sin el campo preset");
+        let p: Perfil = serde_json::from_str(json).expect("debería cargar sin el campo preset");
         assert_eq!(p.preset, "iurefficient");
     }
 
@@ -223,7 +223,7 @@ mod tests {
     fn el_perfil_no_guarda_la_contrasena() {
         let p = Perfil::nuevo("x", "https://a.test/", "u@e.c");
         let json = serde_json::to_string(&p).unwrap();
-        for prohibido in ["pass", "password", "contrasena", "secret"] {
+        for prohibido in ["pass", "password", "contraseña", "secret"] {
             assert!(
                 !json.to_lowercase().contains(prohibido),
                 "el perfil filtra '{prohibido}': {json}"

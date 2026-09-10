@@ -1,12 +1,18 @@
 import { Capacidades, Verdict, describir, funciona } from "../api";
 
-/** Traduce cada limite a algo que una persona pueda accionar. */
-const EXPLICACION: Record<string, string> = {
-  DELETE: "Los documentos no se pueden eliminar desde la unidad. Hazlo desde Iurefficient.",
-  MKCOL: "Las carpetas se crean desde Iurefficient, no desde la unidad.",
-  MOVE: "No se puede mover ni renombrar archivos desde la unidad.",
-  PROPPATCH: "La fecha de modificación no se puede escribir, así que no sirve para detectar cambios.",
-};
+/** Traduce cada límite a algo que una persona pueda accionar.
+ *
+ * `sitio` es el nombre de la aplicación web del servidor. Contra un WebDAV
+ * cualquiera no lo sabemos, así que se habla en genérico en vez de inventarlo. */
+function explicar(verbo: string, sitio: string): string {
+  switch (verbo) {
+    case "DELETE": return `Los documentos no se pueden eliminar desde la unidad. Hazlo ${sitio}.`;
+    case "MKCOL": return `Las carpetas se crean ${sitio}, no desde la unidad.`;
+    case "MOVE": return "No se puede mover ni renombrar archivos desde la unidad.";
+    case "PROPPATCH": return "La fecha de modificación no se puede escribir, así que no sirve para detectar cambios.";
+    default: return `El servidor rechaza ${verbo}.`;
+  }
+}
 
 function Celda({ v }: { v: Verdict }) {
   if (funciona(v)) return <span className="si">sí</span>;
@@ -14,7 +20,15 @@ function Celda({ v }: { v: Verdict }) {
   return <span className="no">{describir(v)}</span>;
 }
 
-export default function PanelCapacidades({ caps }: { caps: Capacidades }) {
+export default function PanelCapacidades({
+  caps,
+  gestor,
+}: {
+  caps: Capacidades;
+  /** Nombre de la aplicación web del servidor, o `null` si no se conoce. */
+  gestor: string | null;
+}) {
+  const sitio = gestor ? `desde ${gestor}` : "desde la aplicación web de tu servidor";
   const r = caps.real;
   const anuncia = (v: string) => caps.anunciado.allow.some((a) => a.toUpperCase() === v);
 
@@ -39,14 +53,14 @@ export default function PanelCapacidades({ caps }: { caps: Capacidades }) {
         <div className="tarjeta">
           <h2>Este servidor anuncia cosas que no cumple</h2>
           <p style={{ color: "var(--tenue)", marginTop: 4 }}>
-            Dice saber hacer {discrepancias.map((d) => d.verbo).join(", ")}, pero al
-            intentarlo falla. IureDav se lo ha retirado para que no lo intente y deje
+            Dice saber {discrepancias.map((d) => d.que.toLowerCase()).join(", ")}, pero
+            al intentarlo falla. IureDav se lo ha retirado para que no lo intente y deje
             operaciones a medias.
           </p>
           {discrepancias.map((d) => (
             <div className="nota limite" key={d.verbo}>
               <strong>{d.que}</strong>
-              <p>{EXPLICACION[d.verbo] ?? `El servidor rechaza ${d.verbo}.`}</p>
+              <p>{explicar(d.verbo, sitio)}</p>
             </div>
           ))}
         </div>

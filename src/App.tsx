@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { Aviso, Conexion, Requisito, api } from "./api";
+import { Aviso, Conexion, Preset, Requisito, api } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
@@ -34,6 +34,7 @@ export default function App() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [falta, setFalta] = useState<Requisito | null>(null);
   const [destino, setDestino] = useState("Carpeta");
+  const [presets, setPresets] = useState<Preset[]>([]);
 
   const recargar = useCallback(async () => {
     try {
@@ -50,6 +51,7 @@ export default function App() {
   useEffect(() => {
     api.comprobarSistema().then(setFalta).catch(() => {});
     api.nombreDestino().then(setDestino).catch(() => {});
+    api.listarPresets().then(setPresets).catch(() => {});
   }, []);
 
   // Los limites del servidor llegan traducidos desde Rust y se muestran tal cual.
@@ -181,7 +183,10 @@ export default function App() {
             <div className="ruta">{detalle.url}</div>
           </div>
           {detalle.capacidades ? (
-            <PanelCapacidades caps={detalle.capacidades} />
+            <PanelCapacidades
+              caps={detalle.capacidades}
+              gestor={presets.find((p) => p.id === detalle.preset)?.donde_gestionar ?? null}
+            />
           ) : (
             <div className="tarjeta">
               <p style={{ color: "var(--tenue)", margin: 0 }}>

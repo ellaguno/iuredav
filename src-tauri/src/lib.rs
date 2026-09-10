@@ -162,11 +162,11 @@ async fn montar(
 ) -> Resp<String> {
     let mut perfil = perfiles::buscar(&id)
         .map_err(texto)?
-        .ok_or_else(|| format!("no existe la conexion '{id}'"))?;
+        .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
 
     let password = secretos::leer(&id, &perfil.usuario)
         .map_err(texto)?
-        .ok_or("no hay contrasena guardada para esta conexion")?;
+        .ok_or("no hay contraseña guardada para esta conexión")?;
 
     // Sin medicion no hay montaje: solo la fase de lectura, que no deja rastro.
     let caps = match perfil.capacidades.clone() {
@@ -224,7 +224,7 @@ async fn desmontar(estado: State<'_, Estado>, id: String) -> Resp<()> {
         .lock()
         .await
         .remove(&id)
-        .ok_or("esa conexion no esta montada")?;
+        .ok_or("esa conexión no esta montada")?;
 
     let guard = estado.rclone.lock().await;
     if let Some(rc) = guard.as_ref() {
@@ -238,7 +238,7 @@ async fn desmontar(estado: State<'_, Estado>, id: String) -> Resp<()> {
 #[tauri::command]
 async fn refrescar(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<()> {
     let guard = estado.rclone.lock().await;
-    let rc = guard.as_ref().ok_or("no hay ninguna conexion activa")?;
+    let rc = guard.as_ref().ok_or("no hay ninguna conexión activa")?;
     rc.refrescar(&id, &ruta).await.map_err(texto)
 }
 
@@ -260,7 +260,7 @@ async fn listar_remoto(
     ruta: String,
 ) -> Resp<serde_json::Value> {
     let guard = estado.rclone.lock().await;
-    let rc = guard.as_ref().ok_or("no hay ninguna conexion activa")?;
+    let rc = guard.as_ref().ok_or("no hay ninguna conexión activa")?;
     rc.llamar(
         "operations/list",
         serde_json::json!({ "fs": format!("{id}:"), "remote": ruta }),
@@ -287,7 +287,7 @@ fn nombre_destino() -> &'static str {
 async fn cambiar_modo(id: String, escritura: bool) -> Resp<()> {
     let mut p = perfiles::buscar(&id)
         .map_err(texto)?
-        .ok_or_else(|| format!("no existe la conexion '{id}'"))?;
+        .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
     p.escritura = escritura;
     perfiles::upsert(p).map_err(texto)
 }

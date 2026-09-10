@@ -1,7 +1,7 @@
 //! Traductor de errores: de la jerga de rclone a espanol llano.
 //!
 //! Este modulo es lo que separa "una unidad que falla de forma incomprensible" de
-//! "una unidad que explica sus limites". Cuando el usuario arrastra un documento a
+//! "una unidad que explica sus límites". Cuando el usuario arrastra un documento a
 //! la papelera, el gestor de archivos ensena un `Error 403` sin contexto; nosotros
 //! leemos la misma linea del log y notificamos *por que* no se puede y *donde* si
 //! se puede hacer.
@@ -107,7 +107,7 @@ fn ruta_de(linea: &str) -> Option<String> {
 pub fn donde(gestionar: Option<&str>) -> String {
     match gestionar {
         Some(n) => format!("desde {n}"),
-        None => "desde la aplicacion web de tu servidor".into(),
+        None => "desde la aplicación web de tu servidor".into(),
     }
 }
 
@@ -128,15 +128,15 @@ pub fn traducir(linea: &str, gestionar: Option<&str>) -> Option<MensajeAmistoso>
     let sitio = donde(gestionar);
     let cred_nueva = match gestionar {
         Some(n) if n == "Iurefficient" => {
-            format!("Genera una nueva contrasena iurdav_... en {n} y vuelve a conectar.")
+            format!("Genera una nueva contraseña iurdav_… en {n} y vuelve a conectar.")
         }
-        Some(n) => format!("Genera una contrasena nueva en {n} y vuelve a conectar."),
-        None => "Genera una contrasena nueva en tu servidor y vuelve a conectar.".to_string(),
+        Some(n) => format!("Genera una contraseña nueva en {n} y vuelve a conectar."),
+        None => "Genera una contraseña nueva en tu servidor y vuelve a conectar.".to_string(),
     };
 
     let (titulo, detalle, severidad): (&str, String, Severidad) = match (verbo, status) {
         (_, Some(401)) | (_, Some(403)) if l.contains("unauthor") || l.contains("credential") => (
-            "Tu contrasena de aplicacion ya no sirve",
+            "Tu contraseña de aplicación ya no sirve",
             cred_nueva,
             Severidad::Aviso,
         ),
@@ -163,7 +163,7 @@ pub fn traducir(linea: &str, gestionar: Option<&str>) -> Option<MensajeAmistoso>
         ),
         (Some("PROPPATCH"), _) => (
             "La fecha del archivo no se conserva",
-            "El servidor no permite fijar la fecha de modificacion. No afecta al contenido."
+            "El servidor no permite fijar la fecha de modificación. No afecta al contenido."
                 .to_string(),
             Severidad::Limite,
         ),
@@ -174,7 +174,7 @@ pub fn traducir(linea: &str, gestionar: Option<&str>) -> Option<MensajeAmistoso>
             Severidad::Aviso,
         ),
         (_, Some(401)) => (
-            "Tu contrasena de aplicacion ya no sirve",
+            "Tu contraseña de aplicación ya no sirve",
             cred_nueva,
             Severidad::Aviso,
         ),
@@ -186,13 +186,13 @@ pub fn traducir(linea: &str, gestionar: Option<&str>) -> Option<MensajeAmistoso>
         ),
         (Some("PUT"), _) => (
             "No se pudo guardar el documento",
-            "El cambio sigue en la cache local y se reintentara. No cierres la aplicacion."
+            "El cambio sigue en la caché local y se reintentará. No cierres la aplicación."
                 .to_string(),
             Severidad::Aviso,
         ),
         (_, Some(s)) if (500..=599).contains(&s) => (
             "El servidor no responde bien",
-            "Puede ser una interrupcion temporal. La unidad reintentara automaticamente."
+            "Puede ser una interrupcion temporal. La unidad reintentará automáticamente."
                 .to_string(),
             Severidad::Error,
         ),
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn traduce_el_403_al_borrar() {
         let l = r#"2026/09/09 19:10:00 ERROR : General/contrato.docx: Failed to remove: Delete "https://x/webdav/General/contrato.docx": 403 Forbidden"#;
-        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("debería traducirse");
         assert_eq!(m.severidad, Severidad::Limite);
         assert!(m.titulo.contains("no se eliminan"));
         assert_eq!(m.ruta.as_deref(), Some("General/contrato.docx"));
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn traduce_el_502_al_mover() {
         let l = "2026/09/09 19:10:00 ERROR : Casos/A/x.pdf: Failed to move: 502 Bad Gateway";
-        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("debería traducirse");
         assert!(m.titulo.contains("mover"));
         assert_eq!(m.severidad, Severidad::Limite);
     }
@@ -233,14 +233,14 @@ mod tests {
     #[test]
     fn traduce_el_403_al_crear_carpeta() {
         let l = "2026/09/09 19:10:00 ERROR : General/Nueva: Failed to mkdir: 403 Forbidden";
-        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("debería traducirse");
         assert!(m.titulo.contains("carpetas"));
     }
 
     #[test]
     fn el_401_pide_una_contrasena_nueva() {
         let l = "2026/09/09 19:10:00 ERROR : couldn't list files: 401 Unauthorized";
-        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("debería traducirse");
         assert_eq!(m.severidad, Severidad::Aviso);
         assert!(m.detalle.contains("iurdav_"));
     }
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn traduce_el_fallo_real_de_dirmove() {
         let l = "2026/09/09 19:26:20 ERROR : webdav root 'General/demo2.txt': Server side directory move failed: DirMove MOVE call failed: puerta de enlace incorrecta: 502 Bad Gateway";
-        let m = traducir(l, Some("Iurefficient")).expect("deberia traducirse");
+        let m = traducir(l, Some("Iurefficient")).expect("debería traducirse");
         assert!(
             m.titulo.contains("mover"),
             "titulo inesperado: {}",
@@ -267,7 +267,7 @@ mod tests {
             None
         )
         .is_none());
-        assert!(traducir("2026/09/09 19:10:00 DEBUG : vfs cache: cleaned", None).is_none());
+        assert!(traducir("2026/09/09 19:10:00 DEBUG : vfs caché: cleaned", None).is_none());
         assert!(traducir("Transferred: 12.4 MiB / 12.4 MiB, 100%", None).is_none());
     }
 

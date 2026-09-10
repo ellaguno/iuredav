@@ -167,7 +167,7 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
               es lo que el servidor sabe hacer de verdad:
             </p>
           </div>
-          <PanelCapacidades caps={caps} />
+          <PanelCapacidades caps={caps} gestor={preset?.donde_gestionar ?? null} />
         </>
       )}
     </>

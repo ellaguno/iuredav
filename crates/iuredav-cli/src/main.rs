@@ -75,7 +75,7 @@ fn listar() -> Result<()> {
             "",
             p.punto_montaje.display(),
             if p.escritura {
-                "edicion"
+                "edición"
             } else {
                 "solo lectura"
             },
@@ -95,9 +95,9 @@ fn olvidar(id: &str) -> Result<()> {
         iuredav_core::secretos::borrar(id, u)?;
     }
     if habia {
-        println!("Perfil '{id}' eliminado, y su contrasena con el.");
+        println!("Perfil '{id}' eliminado, y su contraseña con el.");
     } else {
-        println!("No habia ningun perfil '{id}'.");
+        println!("No habia ningún perfil '{id}'.");
     }
     Ok(())
 }

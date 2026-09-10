@@ -212,7 +212,7 @@ impl ServerCapabilities {
             "Este servidor no permite mover ni renombrar archivos.",
         );
         revisar("PROPPATCH", &self.real.proppatch_modtime,
-            "La fecha de modificacion no se puede escribir, asi que no sirve para detectar cambios.");
+            "La fecha de modificación no se puede escribir, así que no sirve para detectar cambios.");
         filas
     }
 

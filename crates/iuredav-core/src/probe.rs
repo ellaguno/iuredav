@@ -77,9 +77,9 @@ impl Probe {
         if !base.ends_with('/') {
             base.push('/');
         }
-        let base = Url::parse(&base).with_context(|| format!("URL invalida: {base}"))?;
+        let base = Url::parse(&base).with_context(|| format!("URL inválida: {base}"))?;
         if base.scheme() != "https" && base.host_str() != Some("localhost") {
-            warn!("la conexion no es HTTPS: la contrasena de aplicacion viajara en claro");
+            warn!("la conexión no es HTTPS: la contraseña de aplicación viajará en claro");
         }
         Ok(Self {
             client: construir_cliente()?,
@@ -109,7 +109,7 @@ impl Probe {
     fn url(&self, rel: &str) -> Result<Url> {
         self.base
             .join(rel)
-            .with_context(|| format!("ruta invalida: {rel}"))
+            .with_context(|| format!("ruta inválida: {rel}"))
     }
 
     async fn peticion(&self, verbo: &str, rel: &str) -> Result<reqwest::RequestBuilder> {
@@ -130,7 +130,7 @@ impl Probe {
         if con_escritura {
             info!(
                 ruta = %self.preset.ruta_selftest,
-                "fase de escritura: si DELETE da 403, el fichero de prueba quedara en el servidor"
+                "fase de escritura: si DELETE da 403, el fichero de prueba quedará en el servidor"
             );
             self.fase_escritura(&mut caps).await;
             caps.sonda_escritura = true;
@@ -165,7 +165,7 @@ impl Probe {
         // aplicacion no sea valida. Merece un mensaje propio.
         if let Verdict::Rechazado { status: 401 } = caps.real.propfind_depth0 {
             return Err(anyhow!(
-                "401 No autorizado: la contrasena de aplicacion (iurdav_...) no es valida o fue revocada"
+                "401 No autorizado: la contraseña de aplicación (iurdav_…) no es válida o fue revocada"
             ));
         }
 
@@ -205,7 +205,7 @@ impl Probe {
         } else {
             info!(
                 carpeta = self.preset.carpeta_muestra(),
-                "no se encontro ningun fichero: no se pueden probar GET ni Range"
+                "no se encontró ningún fichero: no se pueden probar GET ni Range"
             );
         }
 
@@ -540,7 +540,7 @@ impl Probe {
                 if r.status().is_success() {
                     warn!(
                         intento,
-                        "un segundo LOCK tuvo exito sobre un recurso ya bloqueado"
+                        "un segundo LOCK tuvo éxito sobre un recurso ya bloqueado"
                     );
                     cruza = Some(false);
                     break;

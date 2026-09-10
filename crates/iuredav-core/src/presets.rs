@@ -44,8 +44,8 @@ impl Preset {
             carpeta_muestra: Some("General/".into()),
             nombre_volumen: "Iurefficient".into(),
             donde_gestionar: Some("Iurefficient".into()),
-            pista_password: "Una contrasena de aplicacion, empieza por iurdav_ y la generas \
-                             —y puedes revocarla— desde tu perfil. No es la contrasena con la \
+            pista_password: "Una contraseña de aplicación: empieza por iurdav_ y la generas \
+                             —y puedes revocarla— desde tu perfil. No es la contraseña con la \
                              que entras a Iurefficient."
                 .into(),
         }
@@ -65,7 +65,7 @@ impl Preset {
             carpeta_muestra: None,
             nombre_volumen: "WebDAV".into(),
             donde_gestionar: None,
-            pista_password: "Tu contrasena, o mejor una contrasena de aplicacion si tu servidor \
+            pista_password: "Tu contraseña, o mejor una contraseña de aplicación si tu servidor \
                              las ofrece. Se guarda en el llavero de tu sistema."
                 .into(),
         }
@@ -158,7 +158,7 @@ mod tests {
         );
         assert!(
             p.donde_gestionar.is_none(),
-            "no sabemos como se llama su aplicacion web"
+            "no sabemos como se llama su aplicación web"
         );
     }
 

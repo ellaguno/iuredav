@@ -67,7 +67,7 @@ pub async fn ejecutar(args: Args) -> Result<()> {
 
     let quiere_escribir = args.escritura || perfil.escritura;
     if quiere_escribir && !caps.real.put_crear.usable() {
-        println!("Aviso: pediste modo edicion, pero la sonda no ha confirmado que el");
+        println!("Aviso: pediste modo edición, pero la sonda no ha confirmado que el");
         println!("       servidor acepte PUT. Se monta en solo lectura.");
         println!(
             "       Para comprobarlo:  iuredav probe --url {} --user {} --escritura",
@@ -164,10 +164,10 @@ fn resumen(
             "\n  Este servidor anuncia {} pero no los cumple,",
             verbos.join(", ")
         );
-        println!("  asi que se le han retirado a rclone para que no planifique con ellos.");
+        println!("  así que se le han retirado a rclone para que no planifique con ellos.");
     }
     if !solo_lectura {
-        println!("\n  En modo edicion, cada guardado crea una version nueva en el servidor.");
+        println!("\n  En modo edición, cada guardado crea una versión nueva en el servidor.");
         println!("  Desde la unidad no se puede borrar ni renombrar.");
     }
     println!("\n  Ctrl+C para desmontar.\n");

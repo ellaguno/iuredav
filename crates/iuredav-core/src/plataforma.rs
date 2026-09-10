@@ -33,7 +33,7 @@ pub fn comprobar() -> Result<(), Requisito> {
                 por_que:
                     "Es lo que permite a Windows mostrar tus documentos como una unidad de disco."
                         .into(),
-                como_instalar: "Descarga e instala WinFsp, y despues vuelve a abrir IureDav."
+                como_instalar: "Descarga e instala WinFsp, y después vuelve a abrir IureDav."
                     .into(),
                 url: Some("https://winfsp.dev/rel/".into()),
             });
@@ -47,7 +47,7 @@ pub fn comprobar() -> Result<(), Requisito> {
                 que_falta: "FUSE 3".into(),
                 por_que: "Es lo que permite mostrar tus documentos como una carpeta del sistema."
                     .into(),
-                como_instalar: "sudo apt install fuse3   (o el equivalente de tu distribucion)"
+                como_instalar: "sudo apt install fuse3   (o el equivalente de tu distribución)"
                     .into(),
                 url: None,
             });
@@ -149,7 +149,7 @@ mod tests {
     fn en_esta_maquina_se_puede_montar() {
         assert!(
             comprobar().is_ok(),
-            "FUSE deberia estar disponible en el entorno de desarrollo"
+            "FUSE debería estar disponible en el entorno de desarrollo"
         );
     }
 }
