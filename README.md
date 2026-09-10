@@ -193,9 +193,14 @@ npm run tauri build
 ```
 
 Produce `.deb`, `.rpm` y `.AppImage` en Linux; `.dmg` en macOS; `.msi` y `.exe` en
-Windows. La integración continua los construye para las cuatro combinaciones
-(Linux x86-64, macOS Intel, macOS Apple Silicon, Windows x86-64) y los deja como
-artefactos de cada ejecución.
+Windows. La integración continua los construye para Linux x86-64, Windows x86-64 y
+macOS, y los deja como artefactos de cada ejecución.
+
+El `.dmg` de macOS es **universal**: un solo instalador válido para Intel y para
+Apple Silicon. Se construye en un runner Apple Silicon porque los Intel de GitHub
+están siendo retirados y los trabajos se quedan en cola indefinidamente. Los dos
+binarios de rclone se unen con `lipo` antes de empaquetar, porque Tauri espera el
+binario externo ya unido y no lo combina por su cuenta.
 
 rclone viaja dentro del paquete con el nombre **`iuredav-rclone`**, no `rclone`.
 Los binarios externos acaban en `/usr/bin`, y ahí `rclone` a secas chocaría con el

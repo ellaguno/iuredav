@@ -54,6 +54,33 @@ def triple_local() -> str:
     raise SystemExit(f"plataforma no contemplada: {sys.platform}")
 
 
+def universal(destino: Path) -> Path:
+    """Une los dos rclone de macOS en un binario universal con `lipo`.
+
+    Tauri, al construir para `universal-apple-darwin`, espera el binario externo
+    ya unido: no combina el de Intel y el de Apple Silicon por su cuenta. Se hace
+    asi —y no dos .dmg— porque los runners Intel de GitHub estan siendo retirados
+    y llevan horas sin arrancar, y ademas un solo instalador para cualquier Mac es
+    mejor para quien lo descarga.
+    """
+    salida = destino / f"{NOMBRE}-universal-apple-darwin"
+    if salida.exists():
+        print(f"  ya estaba: {salida.name}")
+        return salida
+
+    partes = [descargar("x86_64-apple-darwin"), descargar("aarch64-apple-darwin")]
+    import shutil
+    import subprocess
+
+    if not shutil.which("lipo"):
+        raise SystemExit("hace falta `lipo`, que solo existe en macOS")
+
+    subprocess.run(["lipo", "-create", "-output", str(salida), *map(str, partes)], check=True)
+    salida.chmod(salida.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    print(f"  unido: {salida.name} ({salida.stat().st_size // 1024 // 1024} MB)")
+    return salida
+
+
 def descargar(triple: str) -> Path:
     carpeta, sufijo = OBJETIVOS[triple]
     salida = DESTINO / f"{NOMBRE}-{triple}{sufijo}"
@@ -92,9 +119,12 @@ def main() -> None:
 
     print(f"rclone v{VERSION} -> {DESTINO}")
     for t in objetivos:
-        if t not in OBJETIVOS:
+        if t == "universal-apple-darwin":
+            universal(DESTINO)
+        elif t in OBJETIVOS:
+            descargar(t)
+        else:
             raise SystemExit(f"objetivo desconocido: {t}")
-        descargar(t)
 
 
 if __name__ == "__main__":

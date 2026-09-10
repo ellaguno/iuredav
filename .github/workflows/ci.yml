@@ -113,12 +113,13 @@ jobs:
           - nombre: Linux x86_64
             os: ubuntu-22.04
             triple: x86_64-unknown-linux-gnu
-          - nombre: macOS Apple Silicon
+          # Un solo instalador para cualquier Mac. Se construye en un runner
+          # Apple Silicon porque los Intel de GitHub estan siendo retirados y
+          # llevan horas sin arrancar.
+          - nombre: macOS (Intel y Apple Silicon)
             os: macos-14
-            triple: aarch64-apple-darwin
-          - nombre: macOS Intel
-            os: macos-13
-            triple: x86_64-apple-darwin
+            triple: universal-apple-darwin
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
           - nombre: Windows x86_64
             os: windows-latest
             triple: x86_64-pc-windows-msvc
@@ -137,7 +138,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.triple }}
+          targets: ${{ matrix.targets || matrix.triple }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.triple }}
