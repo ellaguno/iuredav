@@ -18,6 +18,12 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.2.0]
+
+Desde la ventana ya se puede comprobar si el servidor acepta subidas —hasta ahora
+el modo edición no podía surtir efecto— y los límites de la unidad han dejado de
+depender de que el servidor mienta sobre ellos.
+
 ### Añadido
 
 - **Volver a comprobar un servidor desde la ventana.** La medición se guardaba en
@@ -84,5 +90,6 @@ optimizado para Iurefficient.
   nativo, y si la caché se llena el desalojo por antigüedad puede expulsar
   contenido marcado.
 
-[Sin publicar]: https://github.com/ellaguno/iuredav/compare/v0.1.0...HEAD
+[Sin publicar]: https://github.com/ellaguno/iuredav/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ellaguno/iuredav/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ellaguno/iuredav/releases/tag/v0.1.0
