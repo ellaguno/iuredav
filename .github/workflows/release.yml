@@ -124,16 +124,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           base="target/${{ matrix.triple }}/release/bundle"
-          mapfile -t ficheros < <(find "$base" -type f \
-            \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
-               -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) | sort)
 
-          if [ ${#ficheros[@]} -eq 0 ]; then
+          # Nada de `mapfile` aqui: macOS trae bash 3.2 —de 2007, por el cambio de
+          # licencia a GPLv3— y `mapfile` es de bash 4. Se acumulan los ficheros en
+          # los parametros posicionales, que funciona en cualquier bash y no se
+          # rompe si un nombre lleva espacios.
+          set --
+          while IFS= read -r -d '' fichero; do
+            set -- "$@" "$fichero"
+          done < <(find "$base" -type f \
+            \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+               -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \) -print0)
+
+          if [ "$#" -eq 0 ]; then
             echo "::error::no se genero ningun instalador en $base"
             exit 1
           fi
-          printf '  %s\n' "${ficheros[@]}"
-          gh release upload "${{ needs.preparar.outputs.etiqueta }}" "${ficheros[@]}" --clobber
+
+          printf '  %s\n' "$@"
+          gh release upload "${{ needs.preparar.outputs.etiqueta }}" "$@" --clobber
 
   publicar:
     name: Publicar
