@@ -94,6 +94,15 @@ export const api = {
   probar: (url: string, usuario: string, password: string, escritura: boolean, preset: string) =>
     invoke<Capacidades>("probar", { url, usuario, password, escritura, preset }),
 
+  /**
+   * Vuelve a medir una conexión ya guardada y actualiza su informe.
+   * Con `escritura` se prueban también PUT, MKCOL, MOVE y DELETE: es lo único
+   * que puede confirmar que el servidor acepta subidas, y por tanto lo único
+   * que desbloquea el modo edición. Deja un archivo de diagnóstico.
+   */
+  resondear: (id: string, escritura: boolean) =>
+    invoke<Capacidades>("resondear", { id, escritura }),
+
   listarPresets: () => invoke<Preset[]>("listar_presets"),
 
   guardar: (datos: {

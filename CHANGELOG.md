@@ -18,6 +18,25 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Volver a comprobar un servidor desde la ventana.** La medición se guardaba en
+  el perfil y no caducaba nunca, así que un servidor que arreglara `DELETE` seguía
+  mutilado para siempre. Ahora la pantalla de detalle la repite cuando se le pida.
+- **Comprobar las subidas desde la ventana.** El formulario sondea solo la lectura
+  a propósito —para no dejar rastro en un servidor que quizá ni se guarde—, pero
+  eso dejaba `PUT` en «sin probar», y con eso el montaje se fuerza a solo lectura:
+  el modo edición no podía surtir efecto nunca. Al activarlo ahora se ofrece medir
+  las subidas, avisando antes del archivo de diagnóstico que eso deja.
+
+### Corregido
+
+- **La sonda decía que los bloqueos eran fiables sin haberlos medido.** El segundo
+  `LOCK` —el que comprueba si un bloqueo lo ven los demás procesos— iba contra la
+  ruta fija de Iurefficient en vez de la del perfil. Con cualquier otro servidor
+  esa ruta no existe, el `LOCK` no podía tener éxito, y de ahí salía un «fiables»
+  que no se había comprobado.
+
 ## [0.1.0]
 
 Primera versión. Monta un servidor WebDAV como una unidad del equipo, con un perfil

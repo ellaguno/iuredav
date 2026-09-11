@@ -156,7 +156,15 @@ La interfaz traduce los límites del servidor a algo accionable: en vez de
 «no permite delete, mkcol, move» dice **«no permite eliminar documentos, crear
 carpetas ni mover o renombrar; esas operaciones se hacen desde Iurefficient»**.
 La pantalla *Ver qué sabe hacer este servidor* enfrenta, fila a fila, lo que el
-servidor anuncia con lo que cumple.
+servidor anuncia con lo que cumple, y desde ahí se puede **volver a comprobarlo**:
+la medición se guarda con la conexión y no caduca, así que un servidor que cambie
+no se detecta solo.
+
+El formulario de una conexión nueva sondea **solo la lectura**, para no dejar
+rastro en un servidor que quizá ni se llegue a guardar. Eso deja `PUT` en «sin
+probar», y sin `PUT` confirmado el montaje se fuerza a solo lectura: por eso al
+activar *Permitir edición* se ofrece comprobar las subidas antes, avisando del
+archivo de diagnóstico que eso deja en el servidor.
 
 ## Carpetas sin conexión
 

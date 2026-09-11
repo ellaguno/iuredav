@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { open as elegirCarpeta } from "@tauri-apps/plugin-dialog";
-import { AvanceAnclaje, Aviso, Conexion, Preset, Requisito, api } from "./api";
+import { AvanceAnclaje, Aviso, Capacidades, Conexion, Preset, Requisito, api, describir } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
@@ -91,6 +91,36 @@ export default function App() {
     }
   }
 
+  /** Lo que hay que decir antes de la fase de escritura: deja un archivo. */
+  function avisoEscritura(c: Conexion): string {
+    const ruta = presets.find((p) => p.id === c.preset)?.ruta_selftest ?? ".iuredav-selftest.txt";
+    return (
+      `Se creará un archivo de diagnóstico en el servidor (${ruta}). Si el servidor no permite ` +
+      "eliminar —el caso de Iurefficient— ese archivo se queda ahí. Repetir la comprobación no " +
+      "acumula archivos, solo versiones del mismo."
+    );
+  }
+
+  /**
+   * Vuelve a medir el servidor. Con `escritura` se prueban también las subidas,
+   * que es lo único que puede desbloquear el modo edición: sin esa medición el
+   * montaje se fuerza a solo lectura por mucho que el usuario lo active.
+   */
+  async function medir(c: Conexion, escritura: boolean): Promise<Capacidades | null> {
+    setOcupado(c.id);
+    setError(null);
+    try {
+      const caps = await api.resondear(c.id, escritura);
+      await recargar();
+      return caps;
+    } catch (e) {
+      setError(String(e));
+      return null;
+    } finally {
+      setOcupado(null);
+    }
+  }
+
   async function alternar(c: Conexion) {
     setOcupado(c.id);
     setError(null);
@@ -107,12 +137,39 @@ export default function App() {
 
   async function cambiarModo(c: Conexion) {
     if (!c.escritura) {
-      const puedeEscribir = c.capacidades?.real.put_crear.estado === "funciona";
-      const aviso = puedeEscribir
-        ? "En este servidor, cada vez que guardes un documento se creará una versión nueva. " +
-          "Y desde la carpeta seguirás sin poder eliminar ni renombrar.\n\n¿Activar el modo edición?"
-        : "Todavía no se ha comprobado que este servidor acepte subidas. Puedes activarlo, " +
-          "pero si no las acepta la carpeta seguirá siendo de solo lectura.\n\n¿Activar de todas formas?";
+      let caps = c.capacidades;
+
+      // Mientras no se compruebe que el servidor acepta subidas, el montaje se
+      // fuerza a solo lectura: activar el modo edición aquí no cambiaría nada.
+      // Así que se ofrece medirlo, que es el único camino que lo desbloquea.
+      if (caps?.real.put_crear.estado !== "funciona") {
+        const quiere = window.confirm(
+          "Para poder editar hay que comprobar antes que este servidor acepta subidas.\n\n" +
+            avisoEscritura(c) +
+            "\n\n¿Comprobarlo ahora?",
+        );
+        if (!quiere) return;
+
+        const medido = await medir(c, true);
+        if (!medido) return;
+        if (medido.real.put_crear.estado !== "funciona") {
+          setError(
+            `Este servidor no acepta subidas (${describir(medido.real.put_crear)}), así que la ` +
+              "carpeta seguirá siendo de solo lectura.",
+          );
+          return;
+        }
+        caps = medido;
+      }
+
+      const versiona = caps.real.put_sobrescribir === "crea_version";
+      const limites = enumerar(c.incumple);
+      const aviso =
+        (versiona
+          ? "En este servidor, cada vez que guardes un documento se creará una versión nueva. "
+          : "") +
+        (limites ? `Y desde la carpeta seguirás sin poder ${limites}. ` : "") +
+        "\n\n¿Activar el modo edición?";
       if (!window.confirm(aviso)) return;
     }
     setOcupado(c.id);
@@ -210,6 +267,27 @@ export default function App() {
           <div className="tarjeta">
             <h2>{detalle.nombre}</h2>
             <div className="ruta">{detalle.url}</div>
+            <div className="acciones" style={{ marginTop: 12 }}>
+              <button
+                className="btn"
+                disabled={ocupado === detalle.id}
+                title="La medición se guarda y no caduca: si el servidor cambia, hay que volver a comprobarlo."
+                onClick={() => void medir(detalle, false)}
+              >
+                {ocupado === detalle.id ? "Comprobando…" : "Volver a comprobar"}
+              </button>
+              <button
+                className="btn"
+                disabled={ocupado === detalle.id}
+                onClick={() => {
+                  if (window.confirm(`${avisoEscritura(detalle)}\n\n¿Comprobar ahora?`)) {
+                    void medir(detalle, true);
+                  }
+                }}
+              >
+                Comprobar también si acepta subidas
+              </button>
+            </div>
           </div>
           {detalle.capacidades ? (
             <PanelCapacidades

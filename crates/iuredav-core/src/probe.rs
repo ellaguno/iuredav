@@ -9,8 +9,9 @@
 //! * **Fase A (solo lectura)** — siempre se ejecuta. No deja rastro en el servidor.
 //! * **Fase B (escritura)** — opt-in, porque **no se puede limpiar lo que crea**:
 //!   DELETE devuelve 403. Por eso escribe siempre en la misma ruta fija y
-//!   reconocible, [`RUTA_SELFTEST`], de modo que repetir el diagnostico genere
-//!   versiones de un unico documento en vez de acumular ficheros nuevos.
+//!   reconocible —`ruta_selftest` del [`Preset`]— de modo que repetir el
+//!   diagnostico genere versiones de un unico documento en vez de acumular
+//!   ficheros nuevos.
 
 use std::time::Duration;
 
@@ -23,11 +24,6 @@ use crate::caps::{
 };
 use crate::dav::{metodo, parse_multistatus, DavEntry};
 use crate::presets::Preset;
-
-/// Ruta de la sonda de escritura del perfil de Iurefficient. Se conserva como
-/// constante porque la CLI la nombra en su aviso; las rutas reales salen del
-/// [`Preset`], para que la misma sonda sirva con cualquier servidor.
-pub const RUTA_SELFTEST: &str = "General/.iuredav-selftest.txt";
 
 const PROPFIND_BODY: &str = r#"<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:"><D:prop>
@@ -524,7 +520,7 @@ impl Probe {
         let mut cruza = Some(true);
         for intento in 0..5 {
             let Ok(otro) = construir_cliente() else { break };
-            let Ok(url) = self.url(RUTA_SELFTEST) else {
+            let Ok(url) = self.url(&self.preset.ruta_selftest) else {
                 break;
             };
             let r = otro
@@ -613,6 +609,28 @@ mod tests {
         );
         assert_eq!(clasificar(StatusCode::CREATED), Verdict::Funciona);
         assert_eq!(clasificar(StatusCode::MULTI_STATUS), Verdict::Funciona);
+    }
+
+    /// Ninguna ruta del servidor puede estar escrita a mano en la sonda: todas
+    /// salen del [`Preset`]. Una constante con la ruta de Iurefficient se colo una
+    /// vez en la prueba de locks, y contra cualquier otro servidor apuntaba a un
+    /// fichero que no existe: el segundo LOCK no podia tener exito nunca, y de ahi
+    /// la sonda concluia que los bloqueos eran fiables sin haber medido nada.
+    #[test]
+    fn la_sonda_no_lleva_rutas_de_servidor_escritas_a_mano() {
+        let fuente = include_str!("probe.rs");
+        // Solo el codigo: dentro del modulo de tests estas rutas si son legitimas.
+        let codigo = &fuente[..fuente.find("#[cfg(test)]").expect("hay modulo de tests")];
+        for (n, linea) in codigo.lines().enumerate() {
+            if linea.trim_start().starts_with("//") {
+                continue;
+            }
+            assert!(
+                !linea.contains("selftest.txt"),
+                "linea {}: la ruta tiene que salir del preset, no estar escrita aqui: {linea}",
+                n + 1
+            );
+        }
     }
 
     #[test]

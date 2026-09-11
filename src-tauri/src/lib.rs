@@ -88,6 +88,38 @@ async fn probar(
         .map_err(texto)
 }
 
+/// Vuelve a medir una conexion ya guardada y actualiza su informe.
+///
+/// Hace falta por dos motivos, y ninguno es cosmetico. Uno: la medicion se guarda
+/// en el perfil y no caduca, asi que sin esto un servidor que manana arregle
+/// DELETE seguiria mutilado para siempre. Y dos: el formulario sondea **solo la
+/// lectura** a proposito, para no dejar rastro en un servidor que el usuario
+/// quiza ni llegue a guardar; pero eso deja `put_crear` en «sin probar», y con
+/// eso [`opciones_de_montaje`] fuerza el montaje a solo lectura. Sin esta orden,
+/// activar el modo edicion desde la ventana no podria surtir efecto nunca.
+///
+/// La contrasena sale del llavero: aqui ya no la tiene el frontend.
+#[tauri::command]
+async fn resondear(id: String, escritura: bool) -> Resp<ServerCapabilities> {
+    let mut perfil = perfiles::buscar(&id)
+        .map_err(texto)?
+        .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
+
+    let password = secretos::leer(&id, &perfil.usuario)
+        .map_err(texto)?
+        .ok_or("no hay contraseña guardada para esta conexión")?;
+
+    let caps = Probe::con_preset(&perfil.url, &perfil.usuario, &password, perfil.preset())
+        .map_err(texto)?
+        .ejecutar(escritura)
+        .await
+        .map_err(texto)?;
+
+    perfil.capacidades = Some(caps.clone());
+    perfiles::upsert(perfil).map_err(texto)?;
+    Ok(caps)
+}
+
 /// Tipos de servidor entre los que puede elegir el usuario.
 #[tauri::command]
 fn listar_presets() -> Vec<Preset> {
@@ -504,6 +536,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             listar_conexiones,
             probar,
+            resondear,
             guardar_conexion,
             olvidar_conexion,
             montar,
