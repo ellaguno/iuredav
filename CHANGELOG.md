@@ -9,7 +9,7 @@ Para publicar una versión:
 python3 scripts/version.py 0.2.0     # cambia la versión en los tres ficheros
 # escribe aquí la sección de 0.2.0
 git commit -am "Versión 0.2.0"
-git tag v0.2.0 && git push --follow-tags
+git tag -a v0.2.0 -m "IureDav 0.2.0" && git push --follow-tags
 ```
 
 La etiqueta dispara la construcción para las tres plataformas y publica una release

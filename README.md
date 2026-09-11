@@ -226,12 +226,16 @@ python3 scripts/version.py            # ver la versión actual y que cuadre
 python3 scripts/version.py 0.2.0      # cambiarla en los tres ficheros
 # escribir la sección de 0.2.0 en CHANGELOG.md
 git commit -am "Versión 0.2.0"
-git tag v0.2.0 && git push --follow-tags
+git tag -a v0.2.0 -m "IureDav 0.2.0" && git push --follow-tags
 ```
 
 La etiqueta dispara la construcción para las tres plataformas y publica una
 release con los instaladores adjuntos y las notas sacadas del
 [CHANGELOG](CHANGELOG.md).
+
+La etiqueta tiene que ser **anotada** (`-a`): `--follow-tags` no empuja las
+ligeras, así que con `git tag v0.2.0` a secas el `push` se lleva el commit, deja
+la etiqueta en tu máquina y no avisa. No se publica nada y parece que sí.
 
 La versión vive en tres ficheros —`Cargo.toml`, `package.json` y
 `tauri.conf.json`— porque cada herramienta tiene la suya. Si se separan sale un

@@ -4,7 +4,7 @@ name: Publicar release
 #
 #   python3 scripts/version.py 0.2.0
 #   git commit -am "Version 0.2.0"
-#   git tag v0.2.0 && git push --follow-tags
+#   git tag -a v0.2.0 -m "IureDav 0.2.0" && git push --follow-tags
 #
 # Lo primero que hace es comprobar que la etiqueta y la version de los ficheros
 # coincidan: publicar un instalador que dice una version y lleva otra es peor que

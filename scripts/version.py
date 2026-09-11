@@ -67,7 +67,11 @@ def main() -> int:
     escribir(nueva)
     print(f"  version puesta a {nueva} en los tres ficheros")
     print("  siguiente paso:")
-    print(f"    git commit -am 'Version {nueva}' && git tag v{nueva} && git push --follow-tags")
+    print(f"    git commit -am 'Version {nueva}'")
+    # Anotada a proposito: `--follow-tags` NO empuja las ligeras, asi que
+    # `git tag v0.2.0 && git push --follow-tags` se queda sin publicar nada y no
+    # avisa de ello. Se descubrio publicando la 0.2.0.
+    print(f"    git tag -a v{nueva} -m 'IureDav {nueva}' && git push --follow-tags")
     return 0
 
 
