@@ -273,6 +273,13 @@ ilegible y además roba un tercio de la altura, con lo que la marca queda apreta
 El `.ico` de Windows se escribe a mano para poder llevar arte distinto en cada
 resolución, que es algo que Pillow no sabe hacer.
 
+Las esquinas van redondeadas al 22 %, que es el radio de los iconos de macOS. El de
+la bandeja es aparte y **redondo del todo**: ahí convive con los iconos del
+sistema, que son circulares en los tres escritorios. Se redondea siempre al tamaño
+final —redondear y luego reducir emborrona el borde y deja un halo del color de
+fondo— y los mosaicos de la Tienda de Windows se quedan cuadrados a propósito,
+porque ahí la forma la pone el sistema.
+
 ## Aviso sobre datos
 
 Este repositorio es público. No incluyas nunca URLs de instancias, correos,

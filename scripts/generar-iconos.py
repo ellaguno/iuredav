@@ -17,7 +17,7 @@ from collections import Counter
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 RAIZ = Path(__file__).resolve().parent.parent
 ORIGEN = RAIZ / "assets" / "iuredav_icon.png"
@@ -30,6 +30,10 @@ MARCA_UI = RAIZ / "src" / "assets" / "marca.png"
 AIRE = 0.06
 # Por debajo de esto, el logotipo no se lee: se usa solo la marca.
 UMBRAL_MARCA = 64
+# Radio de las esquinas, en proporcion al lado. 0.22 es lo que usan los iconos de
+# macOS y los adaptativos de Android: por debajo de 0.15 no se aprecia y por
+# encima de 0.30 el dibujo empieza a perder las esquinas.
+RADIO = 0.22
 
 
 def color_de_fondo(img: Image.Image) -> tuple:
@@ -112,6 +116,35 @@ def cuadrar(img: Image.Image, fondo: tuple) -> Image.Image:
     return lienzo
 
 
+def redondear(img: Image.Image, radio_rel: float = RADIO) -> Image.Image:
+    """Recorta las esquinas. Con `radio_rel = 0.5` sale un circulo.
+
+    La mascara se dibuja a 4x y se reduce despues: `ImageDraw` no suaviza bordes,
+    y sin ese paso la curva sale escalonada justo en los tamanos pequenos, que es
+    donde mas se nota.
+
+    Se aplica **al tamano final**, nunca antes de reescalar: redondear y luego
+    reducir emborrona el borde y deja un halo del color de fondo.
+    """
+    lado = img.size[0]
+    escala = 4
+    mascara = Image.new("L", (lado * escala, lado * escala), 0)
+    ImageDraw.Draw(mascara).rounded_rectangle(
+        (0, 0, lado * escala - 1, lado * escala - 1),
+        radius=int(lado * escala * radio_rel),
+        fill=255,
+    )
+
+    salida = img.convert("RGBA")
+    salida.putalpha(mascara.resize((lado, lado), Image.LANCZOS))
+    return salida
+
+
+def a_tamano(arte: Image.Image, px: int, radio_rel: float = RADIO) -> Image.Image:
+    """Reescala y redondea, en ese orden."""
+    return redondear(arte.resize((px, px), Image.LANCZOS), radio_rel)
+
+
 def escribir_ico(ruta: Path, imagenes: dict[int, Image.Image]) -> None:
     """Escribe un .ico con arte distinto en cada resolucion.
 
@@ -123,7 +156,7 @@ def escribir_ico(ruta: Path, imagenes: dict[int, Image.Image]) -> None:
     blobs = []
     for t in tamanos:
         b = BytesIO()
-        imagenes[t].resize((t, t), Image.LANCZOS).save(b, format="PNG")
+        a_tamano(imagenes[t], t).save(b, format="PNG")
         blobs.append(b.getvalue())
 
     cabecera = struct.pack("<HHH", 0, 1, len(tamanos))
@@ -158,6 +191,17 @@ TAMANOS = {
     "StoreLogo.png": 50,
 }
 
+# Los mosaicos de la Tienda de Windows se quedan cuadrados. Ahi la forma la pone
+# el sistema sobre un fondo de color propio, asi que unas esquinas transparentes
+# no se leerian como un icono redondeado sino como un recorte mal hecho.
+CUADRADOS = {n for n in TAMANOS if n.startswith("Square")} | {"StoreLogo.png"}
+
+# Icono de la bandeja del sistema y de las notificaciones. Va aparte y **redondo**:
+# ahi convive con los iconos del sistema, que en los tres escritorios son
+# circulares, y un cuadrado con las esquinas redondeadas canta al lado. Lleva solo
+# la marca, porque se dibuja a 22 px.
+BANDEJA = "bandeja.png"
+
 
 def main() -> None:
     if not ORIGEN.exists():
@@ -175,18 +219,30 @@ def main() -> None:
 
     for nombre, px in TAMANOS.items():
         arte = marca if px < UMBRAL_MARCA else completo
-        arte.resize((px, px), Image.LANCZOS).save(DESTINO / nombre)
+        if nombre in CUADRADOS:
+            arte.resize((px, px), Image.LANCZOS).save(DESTINO / nombre)
+        else:
+            a_tamano(arte, px).save(DESTINO / nombre)
+
+    # Redondo del todo. 128 px y no 22: el tamano real depende del escritorio y
+    # del factor de escala, y reducir una imagen buena sale mejor que agrandar una
+    # justa.
+    a_tamano(marca, 128, radio_rel=0.5).save(DESTINO / BANDEJA)
 
     escribir_ico(DESTINO / "icon.ico", {
         16: marca, 32: marca, 48: marca,
         64: completo, 128: completo, 256: completo,
     })
 
+    # La cabecera de la ventana lleva las mismas esquinas que el icono del
+    # sistema, asi que el redondeo viene en el PNG y no de una regla de CSS.
     MARCA_UI.parent.mkdir(parents=True, exist_ok=True)
-    marca.resize((128, 128), Image.LANCZOS).save(MARCA_UI)
+    a_tamano(marca, 128).save(MARCA_UI)
 
     pequenos = [n for n, px in TAMANOS.items() if px < UMBRAL_MARCA]
-    print(f"  {len(TAMANOS) + 1} iconos escritos en {DESTINO}")
+    print(f"  {len(TAMANOS) + 2} iconos escritos en {DESTINO}")
+    print(f"  esquinas redondeadas al {RADIO:.0%}; {BANDEJA} es un circulo")
+    print(f"  cuadrados a proposito (mosaicos de Windows): {len(CUADRADOS)}")
     print(f"  usan solo la marca (el logotipo no se leeria): {', '.join(sorted(pequenos))}")
     print(f"  marca para la cabecera de la ventana: {MARCA_UI.relative_to(RAIZ)}")
 

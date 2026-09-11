@@ -88,13 +88,13 @@ pub async fn refrescar(app: &AppHandle) {
 }
 
 pub fn instalar(app: &AppHandle) -> tauri::Result<()> {
-    let icono = app
-        .default_window_icon()
-        .cloned()
-        .ok_or_else(|| tauri::Error::UnknownPath)?;
-
     TrayIconBuilder::with_id(ID_BANDEJA)
-        .icon(icono)
+        // Icono propio y **redondo**, no el de la ventana: en la bandeja convive
+        // con los iconos del sistema, que en los tres escritorios son circulares,
+        // y un cuadrado —aunque tenga las esquinas redondeadas— canta al lado.
+        // Va embebido en el binario, que es lo que espera la bandeja: una ruta a
+        // disco se rompe en cuanto el paquete coloca los recursos en otro sitio.
+        .icon(tauri::include_image!("icons/bandeja.png"))
         .tooltip("IureDav")
         // En Windows y Linux, el clic izquierdo abre la ventana y el derecho el
         // menu, que es lo que la gente espera en cada sistema.

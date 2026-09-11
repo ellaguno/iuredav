@@ -59,7 +59,8 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 }
 .cabecera h1 { font-size: 20px; }
 .cabecera .crece { flex: 1; }
-.marca { flex: none; border-radius: 8px; display: block; }
+/* El redondeo viene en el propio PNG, igual que en el icono del sistema. */
+.marca { flex: none; display: block; }
 
 /* ------------------------------------------------------------------- botones */
 

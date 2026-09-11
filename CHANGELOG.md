@@ -18,6 +18,12 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Los iconos llevan las esquinas redondeadas**, al 22 % como los de macOS, y el
+  de la bandeja del sistema es **redondo del todo**: ahí convive con los iconos
+  del sistema, que son circulares en los tres escritorios.
+
 ### Corregido
 
 - **«No se pudo crear» cuando lo que había era un montaje sin cerrar.** Si la
