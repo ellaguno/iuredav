@@ -23,6 +23,10 @@ proceso se detiene antes de construir nada.
 - **Volver a comprobar un servidor desde la ventana.** La medición se guardaba en
   el perfil y no caducaba nunca, así que un servidor que arreglara `DELETE` seguía
   mutilado para siempre. Ahora la pantalla de detalle la repite cuando se le pida.
+- **Atajo para generar la contraseña de aplicación.** En una conexión de
+  Iurefficient, un botón junto al campo abre el perfil de *tu* instancia —la
+  dirección sale de lo que acabas de escribir, no de una escrita a mano— donde
+  está «Otros» → «Contraseñas de acceso WebDAV» → «Generar».
 - **Comprobar las subidas desde la ventana.** El formulario sondea solo la lectura
   a propósito —para no dejar rastro en un servidor que quizá ni se guarde—, pero
   eso dejaba `PUT` en «sin probar», y con eso el montaje se fuerza a solo lectura:

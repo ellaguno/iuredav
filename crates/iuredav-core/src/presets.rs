@@ -30,6 +30,10 @@ pub struct Preset {
     pub donde_gestionar: Option<String>,
     /// Pista sobre la contrasena, para el formulario.
     pub pista_password: String,
+    /// Pagina donde el usuario genera la contrasena de aplicacion, relativa al
+    /// dominio de su instancia. `None` si no sabemos donde esta: mandar a alguien
+    /// a una URL inventada es peor que no ofrecer el atajo.
+    pub ruta_credenciales: Option<String>,
 }
 
 impl Preset {
@@ -44,10 +48,12 @@ impl Preset {
             carpeta_muestra: Some("General/".into()),
             nombre_volumen: "Iurefficient".into(),
             donde_gestionar: Some("Iurefficient".into()),
-            pista_password: "Una contraseña de aplicación: empieza por iurdav_ y la generas \
-                             —y puedes revocarla— desde tu perfil. No es la contraseña con la \
-                             que entras a Iurefficient."
+            pista_password: "Una contraseña de aplicación: empieza por iurdav_ y no es la \
+                             contraseña con la que entras a Iurefficient. La generas —y la \
+                             revocas— desde tu perfil, en «Otros» → «Contraseñas de acceso \
+                             WebDAV» → «Generar»."
                 .into(),
+            ruta_credenciales: Some("dashboard/profile".into()),
         }
     }
 
@@ -68,6 +74,8 @@ impl Preset {
             pista_password: "Tu contraseña, o mejor una contraseña de aplicación si tu servidor \
                              las ofrece. Se guarda en el llavero de tu sistema."
                 .into(),
+            // Cada servidor tiene la suya en otro sitio, y no la sabemos.
+            ruta_credenciales: None,
         }
     }
 
@@ -160,6 +168,18 @@ mod tests {
             p.donde_gestionar.is_none(),
             "no sabemos como se llama su aplicación web"
         );
+    }
+
+    /// El atajo para generar la contrasena solo puede existir donde sepamos a
+    /// donde lleva. En un servidor ajeno, un enlace inventado manda al usuario a
+    /// un 404 con cara de ser culpa suya.
+    #[test]
+    fn solo_hay_atajo_a_las_credenciales_si_sabemos_donde_estan() {
+        assert_eq!(
+            Preset::iurefficient().ruta_credenciales.as_deref(),
+            Some("dashboard/profile")
+        );
+        assert!(Preset::generico().ruta_credenciales.is_none());
     }
 
     #[test]

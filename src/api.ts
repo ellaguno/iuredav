@@ -47,6 +47,8 @@ export interface Preset {
   /** Nombre de la aplicación web del servidor, si se conoce. */
   donde_gestionar: string | null;
   pista_password: string;
+  /** Página donde generar la contraseña, relativa al dominio de la instancia. */
+  ruta_credenciales: string | null;
 }
 
 export interface Conexion {

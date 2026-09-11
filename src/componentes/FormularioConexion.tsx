@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Capacidades, Preset, api } from "../api";
 import PanelCapacidades from "./PanelCapacidades";
 
@@ -11,6 +12,26 @@ interface Props {
 const aId = (s: string) =>
   s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "conexion";
+
+/**
+ * Dónde genera este usuario su contraseña de aplicación.
+ *
+ * Sale del dominio que acaba de escribir, no de una instancia escrita a mano:
+ * cada despacho tiene la suya. `null` si todavía no hay dirección, si no se
+ * entiende, o si el tipo de servidor no tiene una página conocida.
+ */
+function urlCredenciales(preset: Preset | undefined, escrito: string): string | null {
+  const ruta = preset?.ruta_credenciales;
+  const dominio = escrito.trim();
+  if (!ruta || !dominio) return null;
+  try {
+    // Se queda solo con el origen: lo escrito puede llevar ya /webdav/.
+    const base = new URL(dominio.includes("://") ? dominio : `https://${dominio}`);
+    return new URL(ruta, `${base.origin}/`).toString();
+  } catch {
+    return null;
+  }
+}
 
 export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
   const [presets, setPresets] = useState<Preset[]>([]);
@@ -36,6 +57,7 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
   }, []);
 
   const preset = presets.find((p) => p.id === presetId);
+  const credenciales = urlCredenciales(preset, url);
 
   const completo = url.trim() && usuario.trim() && password;
 
@@ -136,6 +158,20 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
               spellCheck={false}
             />
             <div className="pista">{preset?.pista_password ?? ""}</div>
+            {preset?.ruta_credenciales && (
+              <button
+                className="btn plano"
+                style={{ marginTop: 6, paddingLeft: 0 }}
+                disabled={!credenciales}
+                title={
+                  credenciales ??
+                  "Escribe antes la dirección de tu instancia y el enlace apuntará a la tuya."
+                }
+                onClick={() => credenciales && void openUrl(credenciales)}
+              >
+                Abrir mi perfil para generarla →
+              </button>
+            )}
           </div>
 
           <div className="campo">
