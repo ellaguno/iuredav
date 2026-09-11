@@ -91,6 +91,12 @@ export default function App() {
     }
   }
 
+  /** Dónde sí puede el usuario hacer lo que la unidad le niega. */
+  function donde(c: Conexion): string {
+    const gestor = presets.find((p) => p.id === c.preset)?.donde_gestionar;
+    return gestor ? `desde ${gestor}` : "desde la aplicación web de tu servidor";
+  }
+
   /** Lo que hay que decir antes de la fase de escritura: deja un archivo. */
   function avisoEscritura(c: Conexion): string {
     const ruta = presets.find((p) => p.id === c.preset)?.ruta_selftest ?? ".iuredav-selftest.txt";
@@ -163,7 +169,7 @@ export default function App() {
       }
 
       const versiona = caps.real.put_sobrescribir === "crea_version";
-      const limites = enumerar(c.incumple);
+      const limites = enumerar(c.limites);
       const aviso =
         (versiona
           ? "En este servidor, cada vez que guardes un documento se creará una versión nueva. "
@@ -403,12 +409,12 @@ export default function App() {
                 </button>
               </div>
 
-              {c.incumple.length > 0 && (
+              {enumerar(c.limites) && (
                 <div className="nota limite">
-                  <strong>Este servidor tiene límites</strong>
+                  <strong>Esta unidad tiene límites</strong>
                   <p>
-                    No permite {enumerar(c.incumple)}. Esas operaciones se hacen desde
-                    Iurefficient; desde la carpeta de tu equipo no funcionan.
+                    No permite {enumerar(c.limites)}. Esas operaciones se hacen {donde(c)};
+                    desde la carpeta de tu equipo no funcionan.
                   </p>
                 </div>
               )}

@@ -170,22 +170,33 @@ pub fn imprimir(caps: &ServerCapabilities) {
         fila("Raíz", &r.raiz.join(", "));
     }
 
-    let d = caps.discrepancias();
+    // Lo que no se puede hacer va primero, porque es lo que le importa a quien
+    // va a usar la unidad. Que ademas estuviera prometido es un agravante, no el
+    // titular: un servidor honesto sobre sus limites sigue teniendolos.
+    let l = caps.limitaciones();
+    let mentidas = l.iter().filter(|x| x.anunciado).count();
     println!("\n{linea}");
-    if d.is_empty() {
-        println!("  El servidor cumple lo que anuncia.");
+    if l.is_empty() {
+        println!("  Esta unidad no tiene límites conocidos.");
     } else {
-        println!(
-            "  EL SERVIDOR ANUNCIA {} CAPACIDAD(ES) QUE NO TIENE",
-            d.len()
-        );
+        println!("  LO QUE ESTA UNIDAD NO PUEDE HACER ({})", l.len());
+        if mentidas > 0 {
+            println!("  {mentidas} de ellas anunciadas por el servidor en su Allow:");
+        }
         println!("{linea}");
-        for x in &d {
-            println!("\n  {} — anunciado en Allow:, pero {}", x.verbo, x.real);
+        for x in &l {
+            let como = if x.anunciado {
+                "anunciado en Allow:, pero "
+            } else {
+                ""
+            };
+            println!("\n  {} — {como}{}", x.verbo, x.real);
             println!("     {}", x.explicacion);
         }
-        println!("\n  Un cliente que se crea ese anuncio (rclone incluido) planifica");
-        println!("  con esas capacidades y falla al ejecutar. IureDav las retira.");
+        if mentidas > 0 {
+            println!("\n  Un cliente que se crea ese anuncio (rclone incluido) planifica");
+            println!("  con esas capacidades y falla al ejecutar. IureDav las retira.");
+        }
     }
     println!("{linea}\n");
 

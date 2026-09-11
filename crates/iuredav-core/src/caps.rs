@@ -151,13 +151,38 @@ pub struct ServerCapabilities {
     pub sonda_escritura: bool,
 }
 
-/// Una discrepancia entre lo anunciado y lo real: la fila de la tabla que la UI
-/// ensena en la pantalla "Estado del servidor".
+/// De donde sale lo que sabemos de una limitacion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Origen {
+    /// Se probo el verbo y el servidor lo rechazo. Es lo que mas vale.
+    Comprobado,
+    /// No se probo, pero el servidor no lo ofrece en su `Allow:`.
+    ///
+    /// Creerse esto no contradice la tesis del proyecto: de un anuncio nos fiamos
+    /// cuando **quita** capacidades, nunca cuando las da. Un servidor que dice no
+    /// saber borrar no va a sorprendernos borrando; uno que promete borrar sí
+    /// puede sorprendernos con un 405, y por eso lo otro hay que medirlo.
+    Declarado,
+}
+
+/// Algo que esta unidad no puede hacer.
+///
+/// No es lo mismo que una discrepancia, y confundirlas costo un aviso: que el
+/// servidor sea **honesto** sobre lo que no sabe hacer no hace que el usuario
+/// pueda hacerlo. Mientras esto colgo de [`ServerCapabilities::discrepancias`],
+/// el dia que el servidor dejara de prometer DELETE en su `Allow:` la
+/// advertencia de que no se puede borrar desaparecia junto con la mentira,
+/// aunque borrar siguiera devolviendo 405.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Discrepancia {
+pub struct Limitacion {
     pub verbo: String,
-    pub anunciado: bool,
+    /// Como respondio de verdad, o por que lo damos por imposible sin probarlo.
     pub real: String,
+    /// Si ademas lo prometia en `Allow:`. Una limitacion anunciada es una
+    /// discrepancia: ahi el servidor miente, y eso se ensena aparte.
+    pub anunciado: bool,
+    pub origen: Origen,
     /// Explicacion en lenguaje llano para el usuario final.
     pub explicacion: String,
 }
@@ -180,21 +205,40 @@ impl ServerCapabilities {
             .any(|v| v.eq_ignore_ascii_case(verbo))
     }
 
-    /// Verbos que el servidor promete en `Allow:` pero que no funcionan.
-    /// Si esta lista no esta vacia, el `Allow:` del servidor no es de fiar y
-    /// cualquier cliente que lo crea (rclone incluido) fallara en ejecucion.
-    pub fn discrepancias(&self) -> Vec<Discrepancia> {
+    /// Todo lo que esta unidad no puede hacer, lo anuncie el servidor o no.
+    ///
+    /// Esto es lo que hay que ensenarle al usuario. Una operacion entra aqui de
+    /// dos maneras: porque se probo y el servidor la rechazo, o porque el
+    /// servidor no la ofrece en su `Allow:` (ver [`Origen`]). Lo que el servidor
+    /// promete y todavia no se ha comprobado **no** entra: ahi no sabemos, y
+    /// callar es mas honesto que adivinar. Eso lo resuelve la sonda de escritura.
+    pub fn limitaciones(&self) -> Vec<Limitacion> {
         let mut filas = Vec::new();
         let mut revisar = |verbo: &str, v: &Verdict, explicacion: &str| {
             let anunciado = self.anuncia(verbo);
-            if anunciado && !v.usable() && !matches!(v, Verdict::SinProbar) {
-                filas.push(Discrepancia {
-                    verbo: verbo.to_string(),
-                    anunciado,
-                    real: v.descripcion(),
-                    explicacion: explicacion.to_string(),
-                });
-            }
+            let sin_probar = matches!(v, Verdict::SinProbar);
+
+            let origen = if !sin_probar {
+                if v.usable() {
+                    return; // Funciona: no hay nada que avisar.
+                }
+                Origen::Comprobado
+            } else if !anunciado {
+                Origen::Declarado
+            } else {
+                return; // Lo promete y no se ha comprobado: no lo sabemos.
+            };
+
+            filas.push(Limitacion {
+                verbo: verbo.to_string(),
+                real: match origen {
+                    Origen::Comprobado => v.descripcion(),
+                    Origen::Declarado => "el servidor no lo ofrece".to_string(),
+                },
+                anunciado,
+                origen,
+                explicacion: explicacion.to_string(),
+            });
         };
         revisar(
             "DELETE",
@@ -216,13 +260,32 @@ impl ServerCapabilities {
         filas
     }
 
+    /// Las limitaciones que el servidor ademas prometia no tener.
+    ///
+    /// Si esta lista no esta vacia, su `Allow:` no es de fiar y cualquier cliente
+    /// que se lo crea —rclone incluido— planifica con capacidades que no existen
+    /// y falla a mitad de ejecutar.
+    pub fn discrepancias(&self) -> Vec<Limitacion> {
+        self.limitaciones()
+            .into_iter()
+            .filter(|l| l.anunciado)
+            .collect()
+    }
+
     /// Resumen de una linea para la CLI y la bandeja del sistema.
     pub fn resumen(&self) -> String {
-        let d = self.discrepancias().len();
-        if d == 0 {
-            "El servidor cumple lo que anuncia.".into()
+        let l = self.limitaciones();
+        if l.is_empty() {
+            return "Esta unidad no tiene límites conocidos.".into();
+        }
+        let mentidas = l.iter().filter(|x| x.anunciado).count();
+        let n = l.len();
+        if mentidas == 0 {
+            format!("{n} operación(es) que esta unidad no puede hacer.")
         } else {
-            format!("{d} capacidad(es) anunciadas que en realidad no funcionan.")
+            format!(
+                "{n} operación(es) que esta unidad no puede hacer, {mentidas} de ellas anunciadas por el servidor."
+            )
         }
     }
 }
@@ -487,6 +550,97 @@ mod tests {
         c
     }
 
+    /// La imagen de Iurefficient de 2026: el `Allow:` ya es honesto —el de una
+    /// coleccion no promete PUT, que es lo correcto segun la norma porque el PUT
+    /// va a la URL del archivo— y el ciclo de vida responde 405 a proposito.
+    fn caps_iurefficient_honesto() -> ServerCapabilities {
+        let mut c = ServerCapabilities::nuevo("https://ejemplo.test/webdav/");
+        c.anunciado.allow = [
+            "OPTIONS",
+            "HEAD",
+            "GET",
+            "PROPFIND",
+            "PROPPATCH",
+            "LOCK",
+            "UNLOCK",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        c.real.propfind_depth1 = Verdict::Funciona;
+        c.real.get = Verdict::Funciona;
+        c.real.rangos = SoporteRango::Soportado;
+        c
+    }
+
+    /// El fallo que separo estos dos conceptos: mientras el aviso colgaba de las
+    /// discrepancias, un servidor que dejaba de mentir se llevaba por delante la
+    /// advertencia. No poder borrar sigue siendo no poder borrar.
+    #[test]
+    fn un_servidor_honesto_sigue_teniendo_limites() {
+        let mut c = caps_iurefficient_honesto();
+        c.real.put_crear = Verdict::Funciona;
+        c.real.borrar = Verdict::Rechazado { status: 405 };
+        c.real.mkcol = Verdict::Rechazado { status: 405 };
+        c.real.mover = Verdict::Rechazado { status: 405 };
+        c.real.proppatch_modtime = Verdict::Funciona;
+        c.sonda_escritura = true;
+
+        let verbos: Vec<_> = c.limitaciones().iter().map(|l| l.verbo.clone()).collect();
+        assert_eq!(verbos, ["DELETE", "MKCOL", "MOVE"]);
+        assert!(
+            c.discrepancias().is_empty(),
+            "este servidor no promete nada que no cumpla"
+        );
+        assert!(c
+            .limitaciones()
+            .iter()
+            .all(|l| l.origen == Origen::Comprobado));
+    }
+
+    /// Y sin sonda de escritura tambien hay que avisar: el propio servidor dice
+    /// en su `Allow:` que no hace esas operaciones. De un anuncio nos fiamos
+    /// cuando quita capacidades, nunca cuando las da.
+    #[test]
+    fn el_allow_honesto_basta_para_avisar_sin_haber_escrito_nada() {
+        let c = caps_iurefficient_honesto();
+        let l = c.limitaciones();
+
+        let verbos: Vec<_> = l.iter().map(|x| x.verbo.clone()).collect();
+        assert_eq!(verbos, ["DELETE", "MKCOL", "MOVE"]);
+        assert!(l.iter().all(|x| x.origen == Origen::Declarado));
+        assert!(!c.sonda_escritura, "no se escribio nada para saberlo");
+
+        // PROPPATCH sí lo anuncia y no se ha probado: eso no lo sabemos.
+        assert!(!verbos.contains(&"PROPPATCH".to_string()));
+    }
+
+    /// Que el `Allow:` de una carpeta no incluya PUT no dice nada sobre si se
+    /// puede crear dentro: el PUT va a la URL del archivo, que todavia no existe.
+    /// Tratarlo como una limitacion declarada seria el mismo error que creerse un
+    /// anuncio, pero al reves.
+    #[test]
+    fn la_ausencia_de_put_en_una_coleccion_no_es_un_limite() {
+        let c = caps_iurefficient_honesto();
+        assert!(!c.anunciado.allow.iter().any(|v| v == "PUT"));
+        assert!(
+            !c.limitaciones().iter().any(|l| l.verbo == "PUT"),
+            "PUT no se deduce del Allow de una carpeta, se mide"
+        );
+    }
+
+    /// Lo que el servidor promete y todavia no se ha comprobado no cuenta: ni
+    /// como limite ni como capacidad. Ahi lo honesto es callar.
+    #[test]
+    fn lo_prometido_y_sin_comprobar_no_cuenta_como_limite() {
+        let mut c = caps_iurefficient(); // su Allow promete DELETE
+        c.real.borrar = Verdict::SinProbar;
+        assert!(
+            !c.limitaciones().iter().any(|l| l.verbo == "DELETE"),
+            "sin medirlo no se puede afirmar que no se puede borrar"
+        );
+    }
+
     #[test]
     fn detecta_que_el_allow_miente() {
         let d = caps_iurefficient().discrepancias();
@@ -579,6 +733,7 @@ mod tests {
         );
         assert!(!o.vfs.contains_key("NoModTime"));
         assert!(c.discrepancias().is_empty());
+        assert!(c.limitaciones().is_empty(), "no hay nada que avisar");
     }
 
     #[test]

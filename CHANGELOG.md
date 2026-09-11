@@ -35,6 +35,14 @@ proceso se detiene antes de construir nada.
 
 ### Corregido
 
+- **El aviso de límites desaparecía si el servidor dejaba de mentir.** «No permite
+  eliminar documentos, crear carpetas ni mover o renombrar» colgaba de las
+  discrepancias, es decir, de que el servidor prometiera en `Allow:` algo que
+  luego fallaba. Un servidor honesto sobre sus límites se quedaba sin aviso
+  aunque siguiera rechazando esas operaciones. Ahora los límites son su propio
+  concepto: entran los que se comprobaron y los que el propio servidor declara no
+  ofrecer, así que hay aviso sin necesidad de escribir nada en el servidor. Lo
+  que promete y no se ha comprobado sigue sin contar, ni a favor ni en contra.
 - **La sonda decía que los bloqueos eran fiables sin haberlos medido.** El segundo
   `LOCK` —el que comprueba si un bloqueo lo ven los demás procesos— iba contra la
   ruta fija de Iurefficient en vez de la del perfil. Con cualquier otro servidor

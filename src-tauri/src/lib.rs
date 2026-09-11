@@ -48,8 +48,10 @@ pub struct VistaConexion {
     #[serde(flatten)]
     perfil: Perfil,
     montado: bool,
-    /// Verbos que el servidor anuncia y no cumple. Vacio si nunca se sondeo.
-    incumple: Vec<String>,
+    /// Lo que esta unidad no puede hacer, lo anuncie el servidor o no. Vacio si
+    /// nunca se sondeo. No sale de las discrepancias: un servidor honesto sobre
+    /// sus limites sigue teniendolos.
+    limites: Vec<String>,
 }
 
 #[tauri::command]
@@ -60,10 +62,10 @@ async fn listar_conexiones(estado: State<'_, Estado>) -> Resp<Vec<VistaConexion>
         .into_iter()
         .map(|p| VistaConexion {
             montado: montados.contains_key(&p.id),
-            incumple: p
+            limites: p
                 .capacidades
                 .as_ref()
-                .map(|c| c.discrepancias().into_iter().map(|d| d.verbo).collect())
+                .map(|c| c.limitaciones().into_iter().map(|l| l.verbo).collect())
                 .unwrap_or_default(),
             perfil: p,
         })
@@ -617,7 +619,7 @@ mod tests {
         let v = VistaConexion {
             perfil: Perfil::nuevo("x", "https://a.test/", "u@e.c"),
             montado: false,
-            incumple: vec!["DELETE".into()],
+            limites: vec!["DELETE".into()],
         };
         let j = serde_json::to_value(&v).unwrap();
         assert_eq!(
@@ -625,7 +627,7 @@ mod tests {
             "el perfil se aplana en la vista"
         );
         assert_eq!(j["montado"], false);
-        assert_eq!(j["incumple"][0], "DELETE");
+        assert_eq!(j["limites"][0], "DELETE");
         // Y no puede llevar la contrasena, que vive en el llavero.
         assert!(j.get("password").is_none());
     }

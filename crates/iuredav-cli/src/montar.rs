@@ -157,14 +157,14 @@ fn resumen(
         }
     );
 
-    let d = caps.discrepancias();
-    if !d.is_empty() {
-        let verbos: Vec<_> = d.iter().map(|x| x.verbo.as_str()).collect();
-        println!(
-            "\n  Este servidor anuncia {} pero no los cumple,",
-            verbos.join(", ")
-        );
-        println!("  así que se le han retirado a rclone para que no planifique con ellos.");
+    let l = caps.limitaciones();
+    if !l.is_empty() {
+        let verbos: Vec<_> = l.iter().map(|x| x.verbo.as_str()).collect();
+        println!("\n  Desde esta unidad no se puede: {}.", verbos.join(", "));
+        println!("  Se le han retirado a rclone para que no planifique con ellos.");
+        if l.iter().any(|x| x.anunciado) {
+            println!("  (El servidor los anuncia en su Allow:, pero no los cumple.)");
+        }
     }
     if !solo_lectura {
         println!("\n  En modo edición, cada guardado crea una versión nueva en el servidor.");

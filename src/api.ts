@@ -62,8 +62,11 @@ export interface Conexion {
   anclados: string[];
   capacidades: Capacidades | null;
   montado: boolean;
-  /** Verbos que el servidor anuncia y no cumple. */
-  incumple: string[];
+  /**
+   * Lo que esta unidad no puede hacer, lo anuncie el servidor o no. No son las
+   * discrepancias: un servidor honesto sobre sus límites sigue teniéndolos.
+   */
+  limites: string[];
 }
 
 export interface Requisito {
