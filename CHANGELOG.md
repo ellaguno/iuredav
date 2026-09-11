@@ -18,6 +18,19 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **«No se pudo crear» cuando lo que había era un montaje sin cerrar.** Si la
+  aplicación muere sin desmontar —un cierre de sesión basta—, la entrada se queda
+  en la tabla del sistema sin nadie detrás y esa carpeta ya no se puede abrir ni
+  volver a montar. Encima el diagnóstico apuntaba al sitio equivocado:
+  `Path::exists()` hace un `stat`, el `stat` falla con `ENOTCONN` y responde
+  «no existe», así que IureDav intentaba crear una carpeta que sí estaba ahí.
+  Ahora se distingue ese caso, se suelta el montaje huérfano, y si no se puede
+  —porque una terminal tenga abierta esa carpeta— se dice eso y qué hacer.
+- **Los montajes huérfanos se limpian al arrancar**, en vez de esperar a que el
+  usuario los descubra fallando al montar.
+
 ## [0.2.0]
 
 Desde la ventana ya se puede comprobar si el servidor acepta subidas —hasta ahora

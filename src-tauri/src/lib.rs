@@ -521,6 +521,12 @@ pub fn run() {
         ))
         .manage(Estado::default())
         .setup(|app| {
+            // Higiene de arranque: si la sesión anterior murió sin desmontar, esa
+            // carpeta no se puede abrir ni volver a montar hasta que se suelte.
+            for nombre in perfiles::limpiar_huerfanos() {
+                tracing::info!(conexion = %nombre, "soltado un montaje de una sesión anterior");
+            }
+
             // Si el escritorio no ofrece bandeja, la aplicación sigue siendo
             // perfectamente usable desde su ventana: no es motivo para no arrancar.
             match bandeja::instalar(app.handle()) {

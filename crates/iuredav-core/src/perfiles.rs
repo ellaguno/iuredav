@@ -11,6 +11,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::caps::ServerCapabilities;
+use crate::plataforma;
 use crate::presets::Preset;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +155,23 @@ pub fn preparar_punto(p: &Path) -> Result<()> {
     if cfg!(windows) {
         return Ok(()); // Una letra de unidad no se crea.
     }
+
+    // Antes que nada, porque envenena todo lo que viene despues: si ahi quedo un
+    // montaje huerfano, `exists()` responde `false` —el `stat` falla con ENOTCONN—
+    // y sin esto acabariamos diciendo «no se pudo crear» sobre una carpeta que
+    // existe. El diagnostico equivocado, justo cuando mas desorienta.
+    if plataforma::montaje_muerto(p) {
+        plataforma::soltar_montaje_muerto(p).map_err(|e| {
+            anyhow::anyhow!(
+                "En {} hay un montaje anterior sin cerrar y no se ha podido soltar ({e}). \
+                 Cierra los programas o terminales que tengan abierta esa carpeta y \
+                 vuelve a intentarlo.",
+                p.display()
+            )
+        })?;
+        tracing::info!(punto = %p.display(), "soltado un montaje que quedó huérfano");
+    }
+
     if !p.exists() {
         fs::create_dir_all(p).with_context(|| format!("no se pudo crear {}", p.display()))?;
         return Ok(());
@@ -172,6 +190,32 @@ pub fn preparar_punto(p: &Path) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Suelta los montajes que quedaron huerfanos de una sesion anterior.
+///
+/// Se llama al arrancar. Si la aplicacion murio sin desmontar —y morir sin pasar
+/// por «Salir» no es un caso raro: un cierre de sesion basta— el usuario se
+/// encuentra con que su carpeta no se abre y no puede volver a montar. Esperar a
+/// que lo descubra fallando es hacerselo descubrir a el.
+///
+/// Devuelve los nombres de las conexiones que se limpiaron. No falla nunca: esto
+/// es higiene de arranque, y no poder hacerla no es motivo para no arrancar.
+pub fn limpiar_huerfanos() -> Vec<String> {
+    let mut limpiados = Vec::new();
+    for perfil in cargar().unwrap_or_default() {
+        if plataforma::montaje_muerto(&perfil.punto_montaje) {
+            match plataforma::soltar_montaje_muerto(&perfil.punto_montaje) {
+                Ok(()) => limpiados.push(perfil.nombre),
+                Err(e) => tracing::warn!(
+                    punto = %perfil.punto_montaje.display(),
+                    %e,
+                    "quedo un montaje huerfano y no se pudo soltar"
+                ),
+            }
+        }
+    }
+    limpiados
 }
 
 #[cfg(test)]

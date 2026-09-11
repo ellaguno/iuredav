@@ -45,6 +45,25 @@ def escribir(nueva: str) -> None:
         p.write_text(json.dumps(d, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def escribir_lock(nueva: str) -> None:
+    """Cargo.lock lleva tambien la version de los crates del propio workspace.
+
+    Si no se toca aqui, el arbol queda incoherente hasta el siguiente `cargo
+    build` y una etiqueta puede acabar llevando un lock que dice otra version:
+    `cargo build --locked` sobre esa etiqueta falla. Paso justo al publicar la
+    0.2.0. No entra en la comprobacion de `leer()` porque es un fichero derivado,
+    no una fuente: aqui solo se mantiene al dia.
+    """
+    p = RAIZ / "Cargo.lock"
+    if not p.exists():
+        return
+    s = p.read_text(encoding="utf-8")
+    for crate in ("iuredav-core", "iuredav-cli", "iuredav-app"):
+        s = re.sub(rf'(^\[\[package\]\]\nname = "{crate}"\nversion = ")[^"]+(")',
+                   rf"\g<1>{nueva}\g<2>", s, count=1, flags=re.M)
+    p.write_text(s, encoding="utf-8")
+
+
 def main() -> int:
     actual = leer()
 
@@ -65,7 +84,8 @@ def main() -> int:
         return 2
 
     escribir(nueva)
-    print(f"  version puesta a {nueva} en los tres ficheros")
+    escribir_lock(nueva)
+    print(f"  version puesta a {nueva} en los tres ficheros (y en Cargo.lock)")
     print("  siguiente paso:")
     print(f"    git commit -am 'Version {nueva}'")
     # Anotada a proposito: `--follow-tags` NO empuja las ligeras, asi que
