@@ -198,6 +198,14 @@ fábrica y se puede desactivar justo debajo de esa opción. Solo afecta al arran
 con la sesión —la entrada de autoarranque lanza el programa con `--autoarranque`—;
 abrirlo a mano enseña la ventana siempre, y sin bandeja tampoco se esconde nunca.
 
+## Avisa de versiones nuevas
+
+Al arrancar, y una vez al día mientras siga en la bandeja, IureDav consulta la
+última release de este repositorio. Si es más nueva que la instalada lo dice en la
+ventana y en el menú de la bandeja, con un enlace a la página de descarga. **Solo
+avisa**: no descarga ni instala nada. La consulta es anónima y se puede apagar en
+la tarjeta de preferencias.
+
 ## Construir los instaladores
 
 ```bash

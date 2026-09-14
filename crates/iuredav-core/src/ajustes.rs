@@ -20,6 +20,11 @@ pub struct Ajustes {
     /// por defecto. No afecta a los arranques a mano, que siempre abren la ventana.
     #[serde(default = "verdadero")]
     pub arrancar_oculto: bool,
+    /// Consultar en GitHub si hay una version mas nueva y decirlo. Solo avisa,
+    /// no instala. `true` por defecto; se puede apagar por quien no quiera que
+    /// el programa hable con GitHub por su cuenta.
+    #[serde(default = "verdadero")]
+    pub avisar_actualizaciones: bool,
 }
 
 fn verdadero() -> bool {
@@ -30,6 +35,7 @@ impl Default for Ajustes {
     fn default() -> Self {
         Self {
             arrancar_oculto: true,
+            avisar_actualizaciones: true,
         }
     }
 }
@@ -87,12 +93,14 @@ mod tests {
     fn un_fichero_sin_el_campo_arranca_oculto() {
         let a: Ajustes = serde_json::from_str("{}").unwrap();
         assert!(a.arrancar_oculto);
+        assert!(a.avisar_actualizaciones);
     }
 
     #[test]
     fn el_ajuste_sobrevive_al_viaje_por_json() {
         let a = Ajustes {
             arrancar_oculto: false,
+            avisar_actualizaciones: false,
         };
         let json = serde_json::to_string(&a).unwrap();
         assert_eq!(serde_json::from_str::<Ajustes>(&json).unwrap(), a);

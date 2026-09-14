@@ -12,7 +12,9 @@
 //! * [`plataforma`] comprueba que la maquina pueda montar, antes de intentarlo.
 //! * [`anclajes`] deja carpetas disponibles sin conexion calentando la cache.
 //! * [`ajustes`] guarda las preferencias que no son de ninguna conexion.
+//! * [`actualizaciones`] avisa de versiones nuevas, sin instalarlas.
 
+pub mod actualizaciones;
 pub mod ajustes;
 pub mod anclajes;
 pub mod caps;

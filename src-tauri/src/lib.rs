@@ -10,6 +10,7 @@ mod bandeja;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use iuredav_core::actualizaciones::{self, Actualizacion};
 use iuredav_core::ajustes;
 use iuredav_core::anclajes::{self, Resumen};
 use iuredav_core::caps::{opciones_de_montaje, MountOptions, ServerCapabilities};
@@ -40,6 +41,10 @@ pub struct Estado {
     /// Si hay icono de bandeja. Decide que hace cerrar la ventana: si no lo hay,
     /// esconderla dejaria al usuario sin ninguna forma de salir del programa.
     pub hay_bandeja: AtomicBool,
+    /// Version mas nueva que la que corre, si se ha encontrado una. Se guarda
+    /// para que una ventana que se abra mas tarde —lo normal si se arranco en la
+    /// bandeja— pueda preguntarlo, en vez de depender de haber visto el evento.
+    pub actualizacion: Mutex<Option<Actualizacion>>,
 }
 
 /// Los errores cruzan a JavaScript como texto: el frontend los ensena tal cual,
@@ -402,6 +407,63 @@ fn fijar_arranque_oculto(activo: bool) -> Resp<()> {
     ajustes::guardar(&a).map_err(texto)
 }
 
+/// La version nueva que se ha encontrado, si hay alguna. Lo pregunta la ventana
+/// al abrirse; mientras esta abierta, le llega ademas por el evento.
+#[tauri::command]
+async fn actualizacion_disponible(estado: State<'_, Estado>) -> Resp<Option<Actualizacion>> {
+    Ok(estado.actualizacion.lock().await.clone())
+}
+
+#[tauri::command]
+fn avisar_actualizaciones() -> bool {
+    ajustes::cargar().avisar_actualizaciones
+}
+
+#[tauri::command]
+async fn fijar_avisar_actualizaciones(
+    app: AppHandle,
+    estado: State<'_, Estado>,
+    activo: bool,
+) -> Resp<()> {
+    let mut a = ajustes::cargar();
+    a.avisar_actualizaciones = activo;
+    ajustes::guardar(&a).map_err(texto)?;
+    // Quien lo apaga no quiere seguir viendo el aviso que ya habia.
+    if !activo {
+        estado.actualizacion.lock().await.take();
+        bandeja::refrescar(&app).await;
+    }
+    Ok(())
+}
+
+/// Consulta si hay una version nueva al arrancar y luego una vez al dia.
+///
+/// La preferencia se relee en cada vuelta, asi que apagarla surte efecto sin
+/// reiniciar. Un fallo de red no es un error para el usuario: se anota y se
+/// vuelve a intentar al dia siguiente.
+fn vigilar_actualizaciones(app: AppHandle) {
+    let actual = app.package_info().version.to_string();
+    tauri::async_runtime::spawn(async move {
+        // Un respiro al arrancar: lo primero es montar, no hablar con GitHub.
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        loop {
+            if ajustes::cargar().avisar_actualizaciones {
+                match actualizaciones::consultar(&actual).await {
+                    Ok(Some(nueva)) => {
+                        tracing::info!(version = %nueva.version, "hay una versión nueva");
+                        *app.state::<Estado>().actualizacion.lock().await = Some(nueva.clone());
+                        let _ = app.emit("iuredav://actualizacion", &nueva);
+                        bandeja::refrescar(&app).await;
+                    }
+                    Ok(None) => tracing::info!(%actual, "no hay versión más nueva"),
+                    Err(e) => tracing::info!(%e, "no se pudo comprobar si hay versión nueva"),
+                }
+            }
+            tokio::time::sleep(actualizaciones::CADA).await;
+        }
+    });
+}
+
 /// Decide si la ventana se ensena nada mas arrancar.
 ///
 /// Se queda escondida solo si se dan las tres cosas: nos lanzo la entrada de
@@ -604,6 +666,8 @@ pub fn run() {
             } else if let Some(v) = app.get_webview_window("main") {
                 v.show()?;
             }
+
+            vigilar_actualizaciones(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -624,6 +688,9 @@ pub fn run() {
             fijar_autoarranque,
             arranque_oculto,
             fijar_arranque_oculto,
+            actualizacion_disponible,
+            avisar_actualizaciones,
+            fijar_avisar_actualizaciones,
             anclar,
             desanclar,
         ])

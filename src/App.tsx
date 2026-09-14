@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { open as elegirCarpeta } from "@tauri-apps/plugin-dialog";
-import { AvanceAnclaje, Aviso, Capacidades, Conexion, Preset, Requisito, api, describir } from "./api";
+import { Actualizacion, AvanceAnclaje, Aviso, Capacidades, Conexion, Preset, Requisito, api, describir } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
@@ -38,6 +38,9 @@ export default function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [auto, setAuto] = useState(false);
   const [oculto, setOculto] = useState(true);
+  const [avisar, setAvisar] = useState(true);
+  const [nueva, setNueva] = useState<Actualizacion | null>(null);
+  const [nuevaVista, setNuevaVista] = useState(false);
   const [anclando, setAnclando] = useState<Record<string, AvanceAnclaje>>({});
 
   const recargar = useCallback(async () => {
@@ -58,6 +61,15 @@ export default function App() {
     api.listarPresets().then(setPresets).catch(() => {});
     api.autoarranque().then(setAuto).catch(() => {});
     api.arranqueOculto().then(setOculto).catch(() => {});
+    api.avisarActualizaciones().then(setAvisar).catch(() => {});
+    // Se pregunta al abrir, y no solo se escucha: si se arrancó en la bandeja, la
+    // comprobación pudo hacerse horas antes de que existiera esta ventana.
+    api.actualizacion().then(setNueva).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const p = listen<Actualizacion>("iuredav://actualizacion", (e) => setNueva(e.payload));
+    return () => { void p.then((quitar) => quitar()); };
   }, []);
 
   // Los limites del servidor llegan traducidos desde Rust y se muestran tal cual.
@@ -253,6 +265,25 @@ export default function App() {
 
       {error && <div className="error-caja">{error}</div>}
 
+      {nueva && !nuevaVista && (
+        <div className="nota aviso">
+          <strong>Hay una versión nueva de IureDav: {nueva.version}</strong>
+          <p>
+            En la página de la release están los instaladores de Linux, macOS y Windows.
+            Se instala encima de esta, como la primera vez; conviene salir de IureDav
+            antes para que desmonte.
+          </p>
+          <div className="acciones" style={{ marginTop: 8 }}>
+            <button className="btn principal" onClick={() => void openUrl(nueva.url)}>
+              Ver la descarga
+            </button>
+            <button className="btn plano" onClick={() => setNuevaVista(true)}>
+              Ahora no
+            </button>
+          </div>
+        </div>
+      )}
+
       {avisos.map((a, i) => (
         <div className={`nota ${a.severidad}`} key={i}>
           <strong>{a.titulo}</strong>
@@ -382,6 +413,30 @@ export default function App() {
                   <em>
                     Al iniciar sesión no abre la ventana: solo aparece el icono en la
                     bandeja. Si lo abres tú, la ventana se muestra siempre.
+                  </em>
+                </span>
+              </label>
+              <label className="anidada" style={{ paddingLeft: 0, marginTop: 14 }}>
+                <input
+                  type="checkbox"
+                  checked={avisar}
+                  onChange={async (e) => {
+                    const v = e.target.checked;
+                    setAvisar(v);
+                    try {
+                      await api.fijarAvisarActualizaciones(v);
+                      if (!v) setNueva(null);
+                    } catch (err) {
+                      setAvisar(!v);
+                      setError(String(err));
+                    }
+                  }}
+                />
+                <span>
+                  <strong>Avisar de versiones nuevas</strong>
+                  <em>
+                    Una vez al día consulta en GitHub si hay una versión más nueva y lo
+                    dice aquí y en la bandeja. No descarga ni instala nada.
                   </em>
                 </span>
               </label>

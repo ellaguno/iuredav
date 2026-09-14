@@ -11,6 +11,7 @@ use tauri::{AppHandle, Manager, Wry};
 
 use std::collections::HashMap;
 
+use iuredav_core::actualizaciones::Actualizacion;
 use iuredav_core::perfiles;
 
 use crate::Estado;
@@ -24,7 +25,11 @@ const PREFIJO: &str = "conexion:";
 /// El conjunto de montajes se recibe hecho a proposito: tomarlo aqui obligaria a
 /// bloquear un mutex asincrono, y hacerlo desde dentro del runtime provoca panico,
 /// no un error. Quien llama ya lo tiene.
-fn menu(app: &AppHandle, montados: &HashMap<String, String>) -> tauri::Result<Menu<Wry>> {
+fn menu(
+    app: &AppHandle,
+    montados: &HashMap<String, String>,
+    actualizacion: Option<&Actualizacion>,
+) -> tauri::Result<Menu<Wry>> {
     let mut items: Vec<Box<dyn tauri::menu::IsMenuItem<Wry>>> = Vec::new();
 
     items.push(Box::new(MenuItem::with_id(
@@ -34,6 +39,18 @@ fn menu(app: &AppHandle, montados: &HashMap<String, String>) -> tauri::Result<Me
         true,
         None::<&str>,
     )?));
+
+    // Si hay version nueva se dice aqui tambien: quien arranca en la bandeja
+    // puede pasar semanas sin abrir la ventana.
+    if let Some(a) = actualizacion {
+        items.push(Box::new(MenuItem::with_id(
+            app,
+            "actualizar",
+            format!("Hay una versión nueva: {}…", a.version),
+            true,
+            None::<&str>,
+        )?));
+    }
     items.push(Box::new(PredefinedMenuItem::separator(app)?));
 
     // Las conexiones guardadas, para poder montarlas sin abrir la ventana, que es
@@ -76,9 +93,11 @@ fn menu(app: &AppHandle, montados: &HashMap<String, String>) -> tauri::Result<Me
 
 /// Rehace el menu tras montar o desmontar, para que los textos digan la verdad.
 pub async fn refrescar(app: &AppHandle) {
-    let montados = app.state::<Estado>().montados.lock().await.clone();
+    let estado = app.state::<Estado>();
+    let montados = estado.montados.lock().await.clone();
+    let actualizacion = estado.actualizacion.lock().await.clone();
     if let Some(bandeja) = app.tray_by_id(ID_BANDEJA) {
-        match menu(app, &montados) {
+        match menu(app, &montados, actualizacion.as_ref()) {
             Ok(m) => {
                 let _ = bandeja.set_menu(Some(m));
             }
@@ -100,7 +119,7 @@ pub fn instalar(app: &AppHandle) -> tauri::Result<()> {
         // menu, que es lo que la gente espera en cada sistema.
         .show_menu_on_left_click(false)
         // Al instalar no hay nada montado todavia.
-        .menu(&menu(app, &HashMap::new())?)
+        .menu(&menu(app, &HashMap::new(), None)?)
         .on_menu_event(al_elegir)
         .on_tray_icon_event(|bandeja, evento| {
             if let TrayIconEvent::Click { button, .. } = evento {
@@ -127,6 +146,20 @@ fn al_elegir(app: &AppHandle, evento: MenuEvent) {
 
     match id.as_str() {
         "mostrar" => mostrar_ventana(app),
+        "actualizar" => {
+            // Abre la pagina de la release en el navegador: ahi estan los
+            // instaladores. No se descarga ni se instala nada desde aqui.
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let nueva = app.state::<Estado>().actualizacion.lock().await.clone();
+                if let Some(a) = nueva {
+                    use tauri_plugin_opener::OpenerExt;
+                    if let Err(e) = app.opener().open_url(&a.url, None::<&str>) {
+                        tracing::warn!(%e, url = %a.url, "no se pudo abrir la página de la release");
+                    }
+                }
+            });
+        }
         "salir" => {
             // Salir de verdad si desmonta: dejar puntos de montaje colgados obliga
             // al usuario a arreglarlo desde una terminal.

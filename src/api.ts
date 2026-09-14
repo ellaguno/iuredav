@@ -86,6 +86,12 @@ export interface AvanceAnclaje {
   terminado: boolean;
 }
 
+/** Una versión más nueva que la instalada, y dónde descargarla. */
+export interface Actualizacion {
+  version: string;
+  url: string;
+}
+
 export interface Aviso {
   titulo: string;
   detalle: string;
@@ -144,6 +150,12 @@ export const api = {
   /** Al arrancar con la sesión, quedarse en la bandeja sin abrir la ventana. */
   arranqueOculto: () => invoke<boolean>("arranque_oculto"),
   fijarArranqueOculto: (activo: boolean) => invoke<void>("fijar_arranque_oculto", { activo }),
+
+  /** La versión nueva encontrada, si hay; mientras la ventana está abierta llega también por evento. */
+  actualizacion: () => invoke<Actualizacion | null>("actualizacion_disponible"),
+  avisarActualizaciones: () => invoke<boolean>("avisar_actualizaciones"),
+  fijarAvisarActualizaciones: (activo: boolean) =>
+    invoke<void>("fijar_avisar_actualizaciones", { activo }),
 };
 
 /** Un verbo solo cuenta como disponible si se comprobo que funciona. */

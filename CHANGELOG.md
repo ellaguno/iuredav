@@ -18,6 +18,16 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Avisa de versiones nuevas.** Al arrancar, y luego una vez al día mientras
+  siga en la bandeja, consulta la última release publicada en GitHub. Si es más
+  nueva, lo dice en la ventana y en el menú de la bandeja, con un enlace a la
+  página de descarga. Solo avisa: no descarga ni instala nada, porque sin firma
+  de código instalar desde dentro pierde la mitad de la gracia. Se puede apagar
+  desde la tarjeta de preferencias, para quien no quiera que el programa hable
+  con GitHub por su cuenta.
+
 ## [0.3.0]
 
 ### Añadido
