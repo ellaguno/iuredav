@@ -18,6 +18,8 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.4.0]
+
 ### Añadido
 
 - **Avisa de versiones nuevas.** Al arrancar, y luego una vez al día mientras
@@ -152,7 +154,8 @@ optimizado para Iurefficient.
   nativo, y si la caché se llena el desalojo por antigüedad puede expulsar
   contenido marcado.
 
-[Sin publicar]: https://github.com/ellaguno/iuredav/compare/v0.3.0...HEAD
+[Sin publicar]: https://github.com/ellaguno/iuredav/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ellaguno/iuredav/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ellaguno/iuredav/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ellaguno/iuredav/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ellaguno/iuredav/releases/tag/v0.1.0
