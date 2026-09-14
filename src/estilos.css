@@ -73,6 +73,12 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
   text-decoration: underline; text-underline-offset: 3px;
 }
 .pie .enlaces button:hover { color: var(--azul-claro); }
+.pie .version { margin: 10px 0 0; font-size: 11.5px; opacity: .85; }
+.pie .version button {
+  background: none; border: 0; padding: 0; color: var(--azul); font-size: inherit;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.pie .version button:hover { color: var(--azul-claro); }
 
 .cabecera {
   display: flex; align-items: center; gap: 12px;

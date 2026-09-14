@@ -86,6 +86,12 @@ export interface AvanceAnclaje {
   terminado: boolean;
 }
 
+/** La versión que corre y la página con todas las releases. */
+export interface AcercaDe {
+  version: string;
+  url_releases: string;
+}
+
 /** Una versión más nueva que la instalada, y dónde descargarla. */
 export interface Actualizacion {
   version: string;
@@ -152,6 +158,8 @@ export const api = {
   /** Al arrancar con la sesión, quedarse en la bandeja sin abrir la ventana. */
   arranqueOculto: () => invoke<boolean>("arranque_oculto"),
   fijarArranqueOculto: (activo: boolean) => invoke<void>("fijar_arranque_oculto", { activo }),
+
+  acercaDe: () => invoke<AcercaDe>("acerca_de"),
 
   /** La versión nueva encontrada, si hay; mientras la ventana está abierta llega también por evento. */
   actualizacion: () => invoke<Actualizacion | null>("actualizacion_disponible"),

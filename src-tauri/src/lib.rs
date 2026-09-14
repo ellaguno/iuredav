@@ -426,6 +426,21 @@ fn fijar_arranque_oculto(activo: bool) -> Resp<()> {
     ajustes::guardar(&a).map_err(texto)
 }
 
+/// Lo que ensena el pie de la ventana: que version es esta y donde estan todas.
+#[derive(Serialize)]
+pub struct AcercaDe {
+    version: String,
+    url_releases: String,
+}
+
+#[tauri::command]
+fn acerca_de(app: AppHandle) -> AcercaDe {
+    AcercaDe {
+        version: app.package_info().version.to_string(),
+        url_releases: actualizaciones::url_releases(),
+    }
+}
+
 /// La version nueva que se ha encontrado, si hay alguna. Lo pregunta la ventana
 /// al abrirse; mientras esta abierta, le llega ademas por el evento.
 #[tauri::command]
@@ -739,6 +754,7 @@ pub fn run() {
             fijar_autoarranque,
             arranque_oculto,
             fijar_arranque_oculto,
+            acerca_de,
             actualizacion_disponible,
             avisar_actualizaciones,
             fijar_avisar_actualizaciones,

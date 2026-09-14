@@ -18,6 +18,12 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **La versión, al pie.** Debajo de los enlaces de Iurefficient, la ventana dice
+  qué versión de IureDav es, si hay una más nueva, y enlaza a la página de
+  releases en GitHub donde están todas.
+
 ## [0.4.0]
 
 ### Añadido

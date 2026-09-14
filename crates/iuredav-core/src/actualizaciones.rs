@@ -43,13 +43,22 @@ pub fn url_api() -> String {
 }
 
 fn url_api_de(repositorio: &str) -> String {
-    let ruta = repositorio
+    format!("https://api.github.com/repos/{}/releases/latest", ruta_de(repositorio))
+}
+
+/// La pagina de todas las releases, para el pie de la ventana.
+pub fn url_releases() -> String {
+    format!("https://github.com/{}/releases", ruta_de(env!("CARGO_PKG_REPOSITORY")))
+}
+
+/// `duenyo/repo` a partir de la URL del repositorio.
+fn ruta_de(repositorio: &str) -> &str {
+    repositorio
         .trim_end_matches('/')
         .trim_end_matches(".git")
         .split("github.com/")
         .nth(1)
-        .unwrap_or("ellaguno/iuredav");
-    format!("https://api.github.com/repos/{ruta}/releases/latest")
+        .unwrap_or("ellaguno/iuredav")
 }
 
 /// `true` si `ultima` es estrictamente mas nueva que `actual`. Las dos con forma
@@ -146,6 +155,7 @@ mod tests {
         );
         // Y la real, la que compila, apunta a este proyecto.
         assert!(url_api().contains("/repos/ellaguno/iuredav/"));
+        assert_eq!(url_releases(), "https://github.com/ellaguno/iuredav/releases");
     }
 
     /// La forma exacta que devuelve GitHub: la etiqueta lleva la `v` y la URL es

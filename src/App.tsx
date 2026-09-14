@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { open as elegirCarpeta } from "@tauri-apps/plugin-dialog";
-import { Actualizacion, AvanceAnclaje, Aviso, Capacidades, Conexion, Preset, Requisito, api, describir } from "./api";
+import { AcercaDe, Actualizacion, AvanceAnclaje, Aviso, Capacidades, Conexion, Preset, Requisito, api, describir } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
@@ -41,6 +41,7 @@ export default function App() {
   const [avisar, setAvisar] = useState(true);
   const [nueva, setNueva] = useState<Actualizacion | null>(null);
   const [nuevaVista, setNuevaVista] = useState(false);
+  const [acerca, setAcerca] = useState<AcercaDe | null>(null);
   const [anclando, setAnclando] = useState<Record<string, AvanceAnclaje>>({});
 
   const recargar = useCallback(async () => {
@@ -62,6 +63,7 @@ export default function App() {
     api.autoarranque().then(setAuto).catch(() => {});
     api.arranqueOculto().then(setOculto).catch(() => {});
     api.avisarActualizaciones().then(setAvisar).catch(() => {});
+    api.acercaDe().then(setAcerca).catch(() => {});
     // Se pregunta al abrir, y no solo se escucha: si se arrancó en la bandeja, la
     // comprobación pudo hacerse horas antes de que existiera esta ventana.
     api.actualizacion().then(setNueva).catch(() => {});
@@ -571,6 +573,14 @@ export default function App() {
           <button onClick={() => void openUrl("https://iurefficient.com")}>iurefficient.com</button>
           <button onClick={() => void openUrl("https://demo.iurefficient.com")}>Probar la demo</button>
         </nav>
+        {acerca && (
+          <p className="version">
+            IureDav {acerca.version}
+            {nueva && <> · hay una versión nueva: {nueva.version}</>}
+            {" · "}
+            <button onClick={() => void openUrl(acerca.url_releases)}>Todas las versiones en GitHub</button>
+          </p>
+        )}
       </footer>
     </div>
   );
