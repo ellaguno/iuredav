@@ -18,6 +18,18 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Arrancar minimizado.** Cuando IureDav arranca con la sesión se queda en la
+  bandeja sin abrir la ventana, que es lo que se espera de un agente que monta
+  unidades: quien lo puso a arrancar solo no quiere verlo cada mañana. Viene
+  activado de fábrica y se desactiva desde la misma tarjeta que el autoarranque.
+  Los arranques a mano abren la ventana siempre, y sin bandeja tampoco se esconde
+  nunca: una ventana oculta sin icono desde el que recuperarla es un programa al
+  que no se puede llegar. La entrada de autoarranque se rehace en cada arranque,
+  así que las creadas por versiones anteriores adoptan el comportamiento nuevo sin
+  tener que tocar nada.
+
 ### Cambiado
 
 - **Los iconos llevan las esquinas redondeadas**, al 22 % como los de macOS, y el

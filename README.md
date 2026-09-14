@@ -192,6 +192,12 @@ menú de la bandeja, que desmonta antes.
 Si el escritorio no ofrece bandeja, IureDav lo detecta y cerrar la ventana sí
 termina el programa — de lo contrario no habría forma de salir.
 
+Con *Arrancar al iniciar sesión* activado, IureDav arranca **minimizado**: solo
+aparece el icono en la bandeja, sin abrir la ventana. Es el comportamiento de
+fábrica y se puede desactivar justo debajo de esa opción. Solo afecta al arranque
+con la sesión —la entrada de autoarranque lanza el programa con `--autoarranque`—;
+abrirlo a mano enseña la ventana siempre, y sin bandeja tampoco se esconde nunca.
+
 ## Construir los instaladores
 
 ```bash

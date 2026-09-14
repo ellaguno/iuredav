@@ -37,6 +37,7 @@ export default function App() {
   const [destino, setDestino] = useState("Carpeta");
   const [presets, setPresets] = useState<Preset[]>([]);
   const [auto, setAuto] = useState(false);
+  const [oculto, setOculto] = useState(true);
   const [anclando, setAnclando] = useState<Record<string, AvanceAnclaje>>({});
 
   const recargar = useCallback(async () => {
@@ -56,6 +57,7 @@ export default function App() {
     api.nombreDestino().then(setDestino).catch(() => {});
     api.listarPresets().then(setPresets).catch(() => {});
     api.autoarranque().then(setAuto).catch(() => {});
+    api.arranqueOculto().then(setOculto).catch(() => {});
   }, []);
 
   // Los limites del servidor llegan traducidos desde Rust y se muestran tal cual.
@@ -354,6 +356,32 @@ export default function App() {
                   <em>
                     IureDav se queda en la bandeja del sistema. Cerrar la ventana no lo
                     detiene ni desmonta nada; para eso está «Salir» en la bandeja.
+                  </em>
+                </span>
+              </label>
+              {/* Solo tiene sentido si arranca con la sesión: a mano, la ventana se
+                  abre siempre, porque quien hizo doble clic quiere verla. */}
+              <label className={`anidada ${auto ? "" : "apagada"}`}>
+                <input
+                  type="checkbox"
+                  checked={oculto}
+                  disabled={!auto}
+                  onChange={async (e) => {
+                    const v = e.target.checked;
+                    setOculto(v);
+                    try {
+                      await api.fijarArranqueOculto(v);
+                    } catch (err) {
+                      setOculto(!v);
+                      setError(String(err));
+                    }
+                  }}
+                />
+                <span>
+                  <strong>Arrancar minimizado</strong>
+                  <em>
+                    Al iniciar sesión no abre la ventana: solo aparece el icono en la
+                    bandeja. Si lo abres tú, la ventana se muestra siempre.
                   </em>
                 </span>
               </label>

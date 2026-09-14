@@ -10,6 +10,7 @@ mod bandeja;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use iuredav_core::ajustes;
 use iuredav_core::anclajes::{self, Resumen};
 use iuredav_core::caps::{opciones_de_montaje, MountOptions, ServerCapabilities};
 use iuredav_core::errors::MensajeAmistoso;
@@ -22,6 +23,12 @@ use iuredav_core::secretos;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
+
+/// Argumento con el que la entrada de autoarranque lanza IureDav. Es lo unico que
+/// distingue «me arranco la sesion» de «me abrio el usuario»: en el primer caso se
+/// puede empezar en la bandeja; en el segundo, quien hizo doble clic quiere ver la
+/// ventana.
+const FLAG_AUTOARRANQUE: &str = "--autoarranque";
 
 /// Un unico sidecar para todos los montajes, arrancado la primera vez que hace
 /// falta y apagado al cerrar la ventana.
@@ -381,6 +388,30 @@ fn fijar_autoarranque(app: AppHandle, activo: bool) -> Resp<()> {
     }
 }
 
+/// Si, al arrancar con la sesion, IureDav se queda en la bandeja sin abrir la
+/// ventana. Es una preferencia del usuario, asi que se guarda en disco.
+#[tauri::command]
+fn arranque_oculto() -> bool {
+    ajustes::cargar().arrancar_oculto
+}
+
+#[tauri::command]
+fn fijar_arranque_oculto(activo: bool) -> Resp<()> {
+    let mut a = ajustes::cargar();
+    a.arrancar_oculto = activo;
+    ajustes::guardar(&a).map_err(texto)
+}
+
+/// Decide si la ventana se ensena nada mas arrancar.
+///
+/// Se queda escondida solo si se dan las tres cosas: nos lanzo la entrada de
+/// autoarranque, el usuario no ha desactivado la preferencia, y hay bandeja. Sin
+/// bandeja no se esconde nunca: una ventana oculta sin icono desde el que
+/// recuperarla es un programa al que no se puede llegar.
+fn empezar_oculto(lanzado_por_la_sesion: bool, prefiere_oculto: bool, hay_bandeja: bool) -> bool {
+    lanzado_por_la_sesion && prefiere_oculto && hay_bandeja
+}
+
 /// Progreso de un calentamiento, para la barra de la interfaz.
 #[derive(Clone, Serialize)]
 struct AvanceAnclaje {
@@ -517,7 +548,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec![FLAG_AUTOARRANQUE]),
         ))
         .manage(Estado::default())
         .setup(|app| {
@@ -529,15 +560,49 @@ pub fn run() {
 
             // Si el escritorio no ofrece bandeja, la aplicación sigue siendo
             // perfectamente usable desde su ventana: no es motivo para no arrancar.
-            match bandeja::instalar(app.handle()) {
-                Ok(()) => app
-                    .state::<Estado>()
-                    .hay_bandeja
-                    .store(true, Ordering::Relaxed),
-                Err(e) => tracing::warn!(
-                    %e,
-                    "sin icono de bandeja; cerrar la ventana terminara el programa"
-                ),
+            let hay_bandeja = match bandeja::instalar(app.handle()) {
+                Ok(()) => true,
+                Err(e) => {
+                    tracing::warn!(
+                        %e,
+                        "sin icono de bandeja; cerrar la ventana terminara el programa"
+                    );
+                    false
+                }
+            };
+            app.state::<Estado>()
+                .hay_bandeja
+                .store(hay_bandeja, Ordering::Relaxed);
+
+            // La entrada de autoarranque se rehace en cada arranque si esta activa.
+            // Es lo que le pone el argumento a las entradas creadas por versiones
+            // anteriores, que no lo llevaban; y de paso la mantiene apuntando al
+            // ejecutable actual si el paquete se movio de sitio. Solo en release:
+            // la entrada apunta al ejecutable que la escribe, y un `tauri dev`
+            // dejaria la sesion del usuario arrancando el binario de depuracion.
+            if !cfg!(debug_assertions) {
+                use tauri_plugin_autostart::ManagerExt;
+                let al = app.autolaunch();
+                if al.is_enabled().unwrap_or(false) {
+                    if let Err(e) = al.enable() {
+                        tracing::warn!(%e, "no se pudo refrescar la entrada de autoarranque");
+                    }
+                }
+            }
+
+            // La ventana nace oculta (`visible: false` en la configuración) y aquí
+            // se decide si se enseña. Un agente que monta unidades no tiene por qué
+            // abrirse cada mañana delante del usuario que lo puso a arrancar solo.
+            let lanzado_por_la_sesion = std::env::args().any(|a| a == FLAG_AUTOARRANQUE);
+            let oculto = empezar_oculto(
+                lanzado_por_la_sesion,
+                ajustes::cargar().arrancar_oculto,
+                hay_bandeja,
+            );
+            if oculto {
+                tracing::info!("arrancado con la sesión: se queda en la bandeja");
+            } else if let Some(v) = app.get_webview_window("main") {
+                v.show()?;
             }
             Ok(())
         })
@@ -557,6 +622,8 @@ pub fn run() {
             listar_presets,
             autoarranque,
             fijar_autoarranque,
+            arranque_oculto,
+            fijar_arranque_oculto,
             anclar,
             desanclar,
         ])
@@ -593,6 +660,30 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Lo que pide el usuario: arrancar con la sesion, y quedarse en la bandeja.
+    #[test]
+    fn con_la_sesion_y_bandeja_se_queda_escondido() {
+        assert!(empezar_oculto(true, true, true));
+    }
+
+    /// Un doble clic del usuario abre la ventana aunque prefiera arrancar oculto:
+    /// la preferencia habla del arranque con la sesion, no de cada arranque.
+    #[test]
+    fn a_mano_siempre_se_ensena() {
+        assert!(!empezar_oculto(false, true, true));
+    }
+
+    #[test]
+    fn si_el_usuario_lo_desactiva_se_ensena() {
+        assert!(!empezar_oculto(true, false, true));
+    }
+
+    /// Sin bandeja, esconderse dejaria el programa inalcanzable.
+    #[test]
+    fn sin_bandeja_nunca_se_esconde() {
+        assert!(!empezar_oculto(true, true, false));
+    }
 
     /// El puente con TypeScript no lo comprueba ningun compilador: si un nombre de
     /// campo se desvia, guardar una conexion falla solo en tiempo de ejecucion, y

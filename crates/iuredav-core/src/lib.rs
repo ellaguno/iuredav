@@ -11,7 +11,9 @@
 //! * [`rclone`] supervisa el sidecar que realiza el montaje.
 //! * [`plataforma`] comprueba que la maquina pueda montar, antes de intentarlo.
 //! * [`anclajes`] deja carpetas disponibles sin conexion calentando la cache.
+//! * [`ajustes`] guarda las preferencias que no son de ninguna conexion.
 
+pub mod ajustes;
 pub mod anclajes;
 pub mod caps;
 pub mod dav;
