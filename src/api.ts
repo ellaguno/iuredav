@@ -130,6 +130,8 @@ export const api = {
   olvidar: (id: string) => invoke<void>("olvidar_conexion", { id }),
   montar: (id: string, escritura: boolean) => invoke<string>("montar", { id, escritura }),
   desmontar: (id: string) => invoke<void>("desmontar", { id }),
+  /** Abre el punto de montaje en el gestor de archivos. Solo si está montada. */
+  abrirCarpeta: (id: string) => invoke<void>("abrir_carpeta", { id }),
   puntoSugerido: (id: string) => invoke<string>("punto_sugerido", { id }),
 
   /** `null` si esta maquina puede montar; si no, que le falta. */

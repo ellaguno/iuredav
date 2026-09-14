@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { open as elegirCarpeta } from "@tauri-apps/plugin-dialog";
 import { Actualizacion, AvanceAnclaje, Aviso, Capacidades, Conexion, Preset, Requisito, api, describir } from "./api";
 import FormularioConexion from "./componentes/FormularioConexion";
@@ -224,6 +224,7 @@ export default function App() {
 
   return (
     <div className="marco">
+      <div className="contenido">
       <header className="cabecera">
         <Marca />
         <div className="crece">
@@ -478,7 +479,10 @@ export default function App() {
                     >
                       Actualizar
                     </button>
-                    <button className="btn" onClick={() => void openPath(c.punto_montaje)}>
+                    <button
+                      className="btn"
+                      onClick={() => api.abrirCarpeta(c.id).catch((e) => setError(String(e)))}
+                    >
                       Abrir carpeta
                     </button>
                   </>
@@ -556,6 +560,18 @@ export default function App() {
           ))}
         </>
       )}
+      </div>
+
+      <footer className="pie">
+        <p className="lema">
+          <strong>Iurefficient</strong> entiende cada proyecto desde su expediente, con una IA
+          que lo lee y lo cita.
+        </p>
+        <nav className="enlaces">
+          <button onClick={() => void openUrl("https://iurefficient.com")}>iurefficient.com</button>
+          <button onClick={() => void openUrl("https://demo.iurefficient.com")}>Probar la demo</button>
+        </nav>
+      </footer>
     </div>
   );
 }

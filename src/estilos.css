@@ -51,7 +51,28 @@ h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 
 /* ---------------------------------------------------------------- estructura */
 
-.marco { max-width: 860px; margin: 0 auto; padding: 28px 24px 48px; }
+.marco {
+  max-width: 860px; margin: 0 auto; padding: 28px 24px 28px;
+  /* Columna a toda la altura para que el pie se quede abajo aunque haya poco
+     contenido, sin flotar por encima de la lista cuando hay mucho. */
+  min-height: 100vh; display: flex; flex-direction: column;
+}
+.marco > .contenido { flex: 1; }
+
+/* ------------------------------------------------------------------- pie */
+
+.pie {
+  margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--borde);
+  text-align: center; font-size: 12.5px; color: var(--tenue);
+}
+.pie .lema { margin: 0 0 6px; }
+.pie .lema strong { color: var(--texto); font-weight: 600; }
+.pie .enlaces { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.pie .enlaces button {
+  background: none; border: 0; padding: 0; color: var(--azul); font-size: 12.5px;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.pie .enlaces button:hover { color: var(--azul-claro); }
 
 .cabecera {
   display: flex; align-items: center; gap: 12px;

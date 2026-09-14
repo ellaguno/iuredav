@@ -352,6 +352,25 @@ async fn refrescar(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<
     rc.refrescar(&id, &ruta).await.map_err(texto)
 }
 
+/// Abre el punto de montaje en el gestor de archivos.
+///
+/// Va por Rust y no por el complemento desde JavaScript porque este comprueba la
+/// ruta contra un ambito declarado de antemano, y el punto de montaje lo elige
+/// el usuario: puede estar en cualquier sitio. Aqui la ruta sale de nuestro
+/// propio estado, no de la ventana, asi que no hay nada que acotar.
+#[tauri::command]
+async fn abrir_carpeta(app: AppHandle, estado: State<'_, Estado>, id: String) -> Resp<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let punto = estado
+        .montados
+        .lock()
+        .await
+        .get(&id)
+        .cloned()
+        .ok_or("esa conexión no está montada")?;
+    app.opener().open_path(punto, None::<&str>).map_err(texto)
+}
+
 #[tauri::command]
 fn comprobar_sistema() -> Option<Requisito> {
     plataforma::comprobar().err()
@@ -710,6 +729,7 @@ pub fn run() {
             montar,
             desmontar,
             refrescar,
+            abrir_carpeta,
             punto_sugerido,
             comprobar_sistema,
             nombre_destino,

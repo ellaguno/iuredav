@@ -28,8 +28,17 @@ proceso se detiene antes de construir nada.
   desde la tarjeta de preferencias, para quien no quiera que el programa hable
   con GitHub por su cuenta.
 
+- **Pie de ventana con Iurefficient.** Una línea con lo que es Iurefficient y
+  enlaces a la página principal y a la demo.
+
 ### Corregido
 
+- **Ningún enlace abría el navegador, y «Abrir carpeta» no abría nada.** El
+  complemento de apertura comprueba cada URL y cada ruta contra un ámbito que
+  hay que declarar, y no estaba declarado: los botones fallaban en silencio.
+  Las URL llevan ahora el ámbito por defecto (`http`, `https`, `mailto`, `tel`),
+  y abrir la carpeta va por Rust, porque el punto de montaje lo elige el usuario
+  y no se puede acotar de antemano.
 - **En Wayland, los botones de cerrar, minimizar y maximizar no respondían.**
   No era cosa de IureDav: `tao` 0.35, la capa de ventanas de Tauri 2, dibuja en
   Wayland una barra de título propia dentro de una caja que se queda con todos
