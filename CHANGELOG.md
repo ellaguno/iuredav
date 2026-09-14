@@ -28,6 +28,16 @@ proceso se detiene antes de construir nada.
   desde la tarjeta de preferencias, para quien no quiera que el programa hable
   con GitHub por su cuenta.
 
+### Corregido
+
+- **En Wayland, los botones de cerrar, minimizar y maximizar no respondían.**
+  No era cosa de IureDav: `tao` 0.35, la capa de ventanas de Tauri 2, dibuja en
+  Wayland una barra de título propia dentro de una caja que se queda con todos
+  los clics, y los botones nunca los reciben (tauri-apps/tauri#13440). `tao` 0.36
+  lo arregla quitando esa barra, pero ninguna Tauri estable lo lleva aún, así que
+  IureDav la retira por su cuenta antes de mostrar la ventana y deja que GTK ponga
+  la suya. En X11 no cambia nada.
+
 ## [0.3.0]
 
 ### Añadido

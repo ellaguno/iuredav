@@ -2000,6 +2000,7 @@ name = "iuredav-app"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "gtk",
  "iuredav-core",
  "serde",
  "serde_json",

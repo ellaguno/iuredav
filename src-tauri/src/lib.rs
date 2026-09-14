@@ -464,6 +464,34 @@ fn vigilar_actualizaciones(app: AppHandle) {
     });
 }
 
+/// En Wayland, deja que GTK ponga su barra de titulo en vez de la de tao.
+///
+/// tao 0.35 —el que trae Tauri 2 estable— dibuja en Wayland una barra de titulo
+/// propia envuelta en un `EventBox` con `above_child`, y eso hace que todos los
+/// clics se queden en la caja y nunca lleguen a los botones: cerrar, minimizar y
+/// maximizar no responden (tauri-apps/tauri#13440). tao 0.36 lo arregla quitando
+/// esa barra, pero ninguna Tauri estable lo lleva aun. Aqui se hace lo mismo:
+/// retirar la barra antes de que la ventana se realice, que es posible porque
+/// nace oculta; GTK crea entonces la suya, que funciona y respeta la disposicion
+/// de botones del escritorio. En X11 tao no pone barra y esto no hace nada.
+#[cfg(target_os = "linux")]
+fn barra_de_titulo_de_gtk(app: &AppHandle) {
+    use gtk::prelude::*;
+    let Some(ventana) = app.get_webview_window("main") else {
+        return;
+    };
+    let Ok(gtk) = ventana.gtk_window() else {
+        return;
+    };
+    if gtk.titlebar().is_some() {
+        gtk.set_titlebar(None::<&gtk::Widget>);
+        tracing::info!("retirada la barra de título de tao; en Wayland la pone GTK");
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn barra_de_titulo_de_gtk(_: &AppHandle) {}
+
 /// Decide si la ventana se ensena nada mas arrancar.
 ///
 /// Se queda escondida solo si se dan las tres cosas: nos lanzo la entrada de
@@ -651,6 +679,9 @@ pub fn run() {
                     }
                 }
             }
+
+            // Antes de que la ventana se realice: despues seria tarde.
+            barra_de_titulo_de_gtk(app.handle());
 
             // La ventana nace oculta (`visible: false` en la configuración) y aquí
             // se decide si se enseña. Un agente que monta unidades no tiene por qué
