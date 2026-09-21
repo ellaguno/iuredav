@@ -42,7 +42,11 @@
       "deb": {
         "depends": [
           "fuse3"
-        ]
+        ],
+        "desktopTemplate": "./linux/app.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "./linux/app.desktop"
       }
     },
     "resources": [],
