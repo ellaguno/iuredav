@@ -105,8 +105,24 @@ export interface Aviso {
   ruta: string | null;
 }
 
+export interface ResultadoLogin {
+  requiereTotp: boolean;
+  totpToken: string | null;
+  passwordApp: string | null;
+  nombre: string | null;
+  reutilizada: boolean;
+}
+
 export const api = {
   listar: () => invoke<Conexion[]>("listar_conexiones"),
+
+  /**
+   * Inicia sesión con la cuenta de Iurefficient y obtiene una contraseña de
+   * aplicación WebDAV (creada a nombre de este equipo, o reutilizada del llavero
+   * compartido). La contraseña de la cuenta no se guarda.
+   */
+  iniciarSesion: (dominio: string, usuario: string, password: string, totpToken?: string, totpCode?: string) =>
+    invoke<ResultadoLogin>("iniciar_sesion", { dominio, usuario, password, totpToken: totpToken ?? null, totpCode: totpCode ?? null }),
 
   probar: (url: string, usuario: string, password: string, escritura: boolean, preset: string) =>
     invoke<Capacidades>("probar", { url, usuario, password, escritura, preset }),

@@ -176,6 +176,25 @@ async fn guardar_conexion(datos: DatosConexion) -> Resp<()> {
     secretos::guardar(&datos.id, &datos.usuario, &datos.password).map_err(texto)
 }
 
+/// Inicio de sesion con la cuenta de Iurefficient: devuelve una contrasena de
+/// aplicacion lista para `probar` y `guardar_conexion`, sin que el usuario la vea.
+#[tauri::command]
+async fn iniciar_sesion(
+    dominio: String,
+    usuario: String,
+    password: String,
+    totp_token: Option<String>,
+    totp_code: Option<String>,
+) -> Resp<iuredav_core::cuenta::ResultadoLogin> {
+    let totp = match (totp_token.as_deref(), totp_code.as_deref()) {
+        (Some(t), Some(c)) if !t.is_empty() && !c.trim().is_empty() => Some((t, c)),
+        _ => None,
+    };
+    iuredav_core::cuenta::iniciar_sesion(&dominio, &usuario, &password, totp)
+        .await
+        .map_err(texto)
+}
+
 #[tauri::command]
 async fn olvidar_conexion(id: String) -> Resp<()> {
     if let Some(p) = perfiles::buscar(&id).map_err(texto)? {
@@ -740,6 +759,7 @@ pub fn run() {
             probar,
             resondear,
             guardar_conexion,
+            iniciar_sesion,
             olvidar_conexion,
             montar,
             desmontar,

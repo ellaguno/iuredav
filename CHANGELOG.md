@@ -18,7 +18,23 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.5.0]
+
 ### Añadido
+
+- **Conectar con tu cuenta de Iurefficient.** En «Nueva conexión», el acceso
+  recomendado ya no pide una contraseña de aplicación: escribes tu correo y tu
+  contraseña de Iurefficient (y el código de dos pasos si lo tienes), IureDav
+  inicia sesión, le pide a la instancia una contraseña de aplicación a nombre de
+  este equipo y la guarda en el llavero del sistema. Tú nunca ves el `iurdav_…`
+  ni tienes que abrir tu perfil. La contraseña de la cuenta no se guarda.
+- **Llavero compartido con las demás apps.** La contraseña de aplicación y la
+  sesión se guardan en la misma entrada que usan IureTranscribe e IureEditor
+  (servicio `iurefficient`), así que conectar en una vale para todas. Sigue
+  disponible «Ya tengo una contraseña de aplicación» para el caso manual.
+- IureDav usa ahora el conector común
+  [`iurefficient-connect`](https://github.com/ellaguno/iurefficient-connect).
+
 
 - **La versión, al pie.** Debajo de los enlaces de Iurefficient, la ventana dice
   qué versión de IureDav es, si hay una más nueva, y enlaza a la página de

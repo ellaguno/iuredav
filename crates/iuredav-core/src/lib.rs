@@ -18,6 +18,7 @@ pub mod actualizaciones;
 pub mod ajustes;
 pub mod anclajes;
 pub mod caps;
+pub mod cuenta;
 pub mod dav;
 pub mod errors;
 pub mod perfiles;

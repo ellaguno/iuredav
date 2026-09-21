@@ -43,12 +43,18 @@ pub fn url_api() -> String {
 }
 
 fn url_api_de(repositorio: &str) -> String {
-    format!("https://api.github.com/repos/{}/releases/latest", ruta_de(repositorio))
+    format!(
+        "https://api.github.com/repos/{}/releases/latest",
+        ruta_de(repositorio)
+    )
 }
 
 /// La pagina de todas las releases, para el pie de la ventana.
 pub fn url_releases() -> String {
-    format!("https://github.com/{}/releases", ruta_de(env!("CARGO_PKG_REPOSITORY")))
+    format!(
+        "https://github.com/{}/releases",
+        ruta_de(env!("CARGO_PKG_REPOSITORY"))
+    )
 }
 
 /// `duenyo/repo` a partir de la URL del repositorio.
@@ -131,7 +137,10 @@ mod tests {
         assert!(es_mas_nueva("0.9.0", "0.10.0"), "10 > 9 aunque '1' < '9'");
         assert!(es_mas_nueva("0.3.0", "1.0.0"));
         assert!(!es_mas_nueva("0.3.0", "0.3.0"));
-        assert!(!es_mas_nueva("0.4.0", "0.3.0"), "ir hacia atras no es actualizar");
+        assert!(
+            !es_mas_nueva("0.4.0", "0.3.0"),
+            "ir hacia atras no es actualizar"
+        );
     }
 
     /// Un prelanzamiento no cuenta como novedad, y una etiqueta rara no avisa.
@@ -155,7 +164,10 @@ mod tests {
         );
         // Y la real, la que compila, apunta a este proyecto.
         assert!(url_api().contains("/repos/ellaguno/iuredav/"));
-        assert_eq!(url_releases(), "https://github.com/ellaguno/iuredav/releases");
+        assert_eq!(
+            url_releases(),
+            "https://github.com/ellaguno/iuredav/releases"
+        );
     }
 
     /// La forma exacta que devuelve GitHub: la etiqueta lleva la `v` y la URL es
@@ -171,7 +183,10 @@ mod tests {
         .unwrap();
         let a = interpretar("0.3.0", r).expect("0.4.0 es mas nueva que 0.3.0");
         assert_eq!(a.version, "0.4.0");
-        assert_eq!(a.url, "https://github.com/ellaguno/iuredav/releases/tag/v0.4.0");
+        assert_eq!(
+            a.url,
+            "https://github.com/ellaguno/iuredav/releases/tag/v0.4.0"
+        );
     }
 
     #[test]

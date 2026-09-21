@@ -42,6 +42,15 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
   const [password, setPassword] = useState("");
   const [punto, setPunto] = useState("");
 
+  // Modo de credencial para Iurefficient: con la cuenta (recomendado) o con una
+  // contraseña de aplicación escrita a mano.
+  const [modo, setModo] = useState<"cuenta" | "manual">("cuenta");
+  const [passCuenta, setPassCuenta] = useState("");
+  const [totpToken, setTotpToken] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [conectando, setConectando] = useState(false);
+  const [conectado, setConectado] = useState<string | null>(null);
+
   const [probando, setProbando] = useState(false);
   const [caps, setCaps] = useState<Capacidades | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +69,38 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
   const credenciales = urlCredenciales(preset, url);
 
   const completo = url.trim() && usuario.trim() && password;
+  const conCuenta = presetId === "iurefficient" && modo === "cuenta";
+
+  async function conectarCuenta() {
+    setConectando(true);
+    setError(null);
+    try {
+      const r = await api.iniciarSesion(
+        url.trim(), usuario.trim(), passCuenta,
+        totpToken ?? undefined, totpToken ? totpCode.trim() : undefined,
+      );
+      if (r.requiereTotp) {
+        setTotpToken(r.totpToken);
+        return;
+      }
+      if (r.passwordApp) {
+        setPassword(r.passwordApp);
+        setPassCuenta("");
+        setTotpToken(null);
+        setTotpCode("");
+        setConectado(
+          (r.nombre ? `Sesión iniciada como ${r.nombre}. ` : "Sesión iniciada. ") +
+            (r.reutilizada
+              ? "Se reutilizó la contraseña de aplicación guardada en el llavero."
+              : "Se creó una contraseña de aplicación a nombre de este equipo."),
+        );
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setConectando(false);
+    }
+  }
 
   async function probar() {
     setProbando(true);
@@ -149,30 +190,79 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
             />
           </div>
 
-          <div className="campo">
-            <label htmlFor="pass">Contraseña</label>
-            <input
-              id="pass" type="password" value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={presetId === "iurefficient" ? "iurdav_…" : "••••••••"}
-              spellCheck={false}
-            />
-            <div className="pista">{preset?.pista_password ?? ""}</div>
-            {preset?.ruta_credenciales && (
+          {presetId === "iurefficient" && (
+            <div className="campo">
+              <label>Acceso</label>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+                  <input type="radio" checked={modo === "cuenta"} onChange={() => setModo("cuenta")} />
+                  Con mi cuenta de Iurefficient (recomendado)
+                </label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+                  <input type="radio" checked={modo === "manual"} onChange={() => setModo("manual")} />
+                  Ya tengo una contraseña de aplicación
+                </label>
+              </div>
+            </div>
+          )}
+
+          {conCuenta ? (
+            <div className="campo">
+              <label htmlFor="passCuenta">{totpToken ? "Código de verificación" : "Contraseña de Iurefficient"}</label>
+              {totpToken ? (
+                <input
+                  id="passCuenta" value={totpCode} inputMode="numeric" autoComplete="one-time-code"
+                  onChange={(e) => setTotpCode(e.target.value)} placeholder="6 dígitos"
+                  onKeyDown={(e) => e.key === "Enter" && void conectarCuenta()}
+                />
+              ) : (
+                <input
+                  id="passCuenta" type="password" value={passCuenta} autoComplete="current-password"
+                  onChange={(e) => setPassCuenta(e.target.value)} placeholder="La misma con la que entras a la web"
+                  onKeyDown={(e) => e.key === "Enter" && void conectarCuenta()}
+                />
+              )}
+              <div className="pista">
+                Tu contraseña no se guarda: IureDav inicia sesión, pide a la instancia una contraseña de
+                aplicación a nombre de este equipo y la guarda en el llavero del sistema, compartido con
+                IureTranscribe e IureEditor.
+              </div>
               <button
-                className="btn plano"
-                style={{ marginTop: 6, paddingLeft: 0 }}
-                disabled={!credenciales}
-                title={
-                  credenciales ??
-                  "Escribe antes la dirección de tu instancia y el enlace apuntará a la tuya."
-                }
-                onClick={() => credenciales && void openUrl(credenciales)}
+                className="btn"
+                style={{ marginTop: 8 }}
+                disabled={conectando || !url.trim() || !usuario.trim() || (totpToken ? totpCode.trim().length < 6 : !passCuenta)}
+                onClick={() => void conectarCuenta()}
               >
-                Abrir mi perfil para generarla →
+                {conectando ? "Conectando…" : totpToken ? "Verificar" : "Conectar y obtener acceso"}
               </button>
-            )}
-          </div>
+              {conectado && <div className="pista" style={{ marginTop: 6 }}>✓ {conectado}</div>}
+            </div>
+          ) : (
+            <div className="campo">
+              <label htmlFor="pass">Contraseña</label>
+              <input
+                id="pass" type="password" value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={presetId === "iurefficient" ? "iurdav_…" : "••••••••"}
+                spellCheck={false}
+              />
+              <div className="pista">{preset?.pista_password ?? ""}</div>
+              {preset?.ruta_credenciales && (
+                <button
+                  className="btn plano"
+                  style={{ marginTop: 6, paddingLeft: 0 }}
+                  disabled={!credenciales}
+                  title={
+                    credenciales ??
+                    "Escribe antes la dirección de tu instancia y el enlace apuntará a la tuya."
+                  }
+                  onClick={() => credenciales && void openUrl(credenciales)}
+                >
+                  Abrir mi perfil para generarla →
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="campo">
             <label htmlFor="punto">Carpeta donde aparecerá</label>
