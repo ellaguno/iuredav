@@ -273,6 +273,16 @@ async fn montar_perfil(
         .map_err(texto)?
         .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
 
+    // Ya montada por otra sesion de IureDav (la version anterior sigue abierta
+    // tras actualizar, o el montaje sobrevivio al proceso): se adopta tal cual en
+    // vez de fallar con «la carpeta no esta vacia».
+    if plataforma::montaje_propio(&id, &perfil.punto_montaje) {
+        let punto = perfil.punto_montaje.to_string_lossy().to_string();
+        tracing::info!(conexion = %perfil.nombre, %punto, "la unidad ya estaba montada; se adopta");
+        estado.montados.lock().await.insert(id.clone(), punto.clone());
+        return Ok(punto);
+    }
+
     let password = secretos::leer(&id, &perfil.usuario)
         .map_err(texto)?
         .ok_or("no hay contraseña guardada para esta conexión")?;
@@ -353,10 +363,23 @@ async fn desmontar_perfil(estado: &State<'_, Estado>, id: &str) -> Resp<()> {
         .ok_or("esa conexión no esta montada")?;
 
     let guard = estado.rclone.lock().await;
-    if let Some(rc) = guard.as_ref() {
-        rc.desmontar(&punto).await.map_err(texto)?;
+    let por_rclone = match guard.as_ref() {
+        Some(rc) => rc.desmontar(&punto).await.map_err(texto),
+        None => Err("el sidecar de rclone no esta disponible".to_string()),
+    };
+    let ruta = std::path::Path::new(&punto);
+    if plataforma::montaje_en(ruta).is_none() {
+        // Ya no hay nada montado: da igual que rclone se quejara.
+        return Ok(());
     }
-    Ok(())
+    // rclone no lo conocia (lo monto otra sesion de IureDav): se suelta desde el sistema.
+    match plataforma::soltar_montaje(ruta) {
+        Ok(()) => Ok(()),
+        Err(e) => Err(match por_rclone {
+            Err(e1) => format!("{e1}; tampoco se pudo desmontar desde el sistema: {e}"),
+            Ok(()) => format!("no se pudo desmontar {punto}: {e}"),
+        }),
+    }
 }
 
 /// Olvida la caché de directorios: es el botón «Actualizar» de la interfaz.
@@ -745,6 +768,24 @@ pub fn run() {
             // carpeta no se puede abrir ni volver a montar hasta que se suelte.
             for nombre in perfiles::limpiar_huerfanos() {
                 tracing::info!(conexion = %nombre, "soltado un montaje de una sesión anterior");
+            }
+            // Unidades que siguen vivas de una sesion anterior (tipico tras actualizar
+            // con la version vieja abierta): se dan por montadas desde el principio.
+            {
+                let vivos: Vec<(String, String, String)> = perfiles::cargar()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|p| plataforma::montaje_propio(&p.id, &p.punto_montaje))
+                    .map(|p| (p.id, p.nombre, p.punto_montaje.to_string_lossy().to_string()))
+                    .collect();
+                if !vivos.is_empty() {
+                    let estado = app.state::<Estado>();
+                    let mut montados = estado.montados.blocking_lock();
+                    for (id, nombre, punto) in vivos {
+                        tracing::info!(conexion = %nombre, %punto, "la unidad ya estaba montada; se adopta");
+                        montados.insert(id, punto);
+                    }
+                }
             }
 
             // Si el escritorio no ofrece bandeja, la aplicación sigue siendo

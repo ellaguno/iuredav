@@ -258,3 +258,125 @@ mod tests {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Montajes vivos: los que siguen en la tabla del sistema con alguien detras.
+//
+// El caso tipico: se actualiza IureDav instalando el paquete a mano mientras la
+// version anterior sigue abierta en la bandeja con su rclone y su unidad. La
+// instancia nueva no sabe nada de ese montaje (la tabla `montados` vive en
+// memoria) y, al ver la carpeta con contenido, se negaba a montar con un mensaje
+// que apuntaba al sitio equivocado. Ahora reconoce el montaje como suyo.
+// ---------------------------------------------------------------------------
+
+/// Que hay montado en `p` segun el sistema: `(origen, tipo)`. `None` si nada.
+#[cfg(target_os = "linux")]
+pub fn montaje_en(p: &Path) -> Option<(String, String)> {
+    let tabla = std::fs::read_to_string("/proc/self/mounts").ok()?;
+    let objetivo = p.to_string_lossy();
+    for linea in tabla.lines() {
+        let mut campos = linea.split_whitespace();
+        let (Some(origen), Some(punto), Some(tipo)) = (campos.next(), campos.next(), campos.next())
+        else {
+            continue;
+        };
+        // /proc/mounts escapa espacios y otros caracteres en octal.
+        let punto = punto
+            .replace("\\040", " ")
+            .replace("\\011", "\t")
+            .replace("\\012", "\n")
+            .replace("\\134", "\\");
+        if punto == objetivo {
+            return Some((origen.to_string(), tipo.to_string()));
+        }
+    }
+    None
+}
+
+/// En macOS la tabla la da `mount`: `origen on /ruta (tipo, opciones)`.
+#[cfg(target_os = "macos")]
+pub fn montaje_en(p: &Path) -> Option<(String, String)> {
+    let salida = std::process::Command::new("mount").output().ok()?;
+    let texto = String::from_utf8_lossy(&salida.stdout);
+    let objetivo = format!(" on {} (", p.to_string_lossy());
+    for linea in texto.lines() {
+        if let Some(i) = linea.find(&objetivo) {
+            let origen = linea[..i].to_string();
+            let resto = &linea[i + objetivo.len()..];
+            let tipo = resto
+                .split(|c| c == ',' || c == ')')
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            return Some((origen, tipo));
+        }
+    }
+    None
+}
+
+/// En Windows la unidad es una letra ligada al proceso: no hay tabla que mirar.
+#[cfg(windows)]
+pub fn montaje_en(_p: &Path) -> Option<(String, String)> {
+    None
+}
+
+/// Si lo que hay montado en `p` es la unidad de IureDav para la conexion `id`
+/// (rclone monta con origen `<remoto>:`, y el remoto se llama como la conexion).
+pub fn montaje_propio(id: &str, p: &Path) -> bool {
+    match montaje_en(p) {
+        Some((origen, tipo)) => {
+            origen == format!("{id}:") && (tipo.contains("fuse") || tipo.contains("rclone"))
+        }
+        None => false,
+    }
+}
+
+/// Desmonta un montaje vivo que no controla nuestro rclone (por ejemplo, el de
+/// una IureDav anterior). Primero de forma normal; si esta ocupado, en diferido.
+#[cfg(unix)]
+pub fn soltar_montaje(p: &Path) -> Result<(), String> {
+    let intentos: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+        &[
+            ("umount", &[]),
+            ("diskutil", &["unmount"]),
+            ("umount", &["-f"]),
+            ("diskutil", &["unmount", "force"]),
+        ]
+    } else {
+        &[
+            ("fusermount3", &["-u"]),
+            ("fusermount", &["-u"]),
+            ("umount", &[]),
+            ("fusermount3", &["-uz"]),
+            ("fusermount", &["-uz"]),
+            ("umount", &["-l"]),
+        ]
+    };
+    let mut ultimo = String::from("no se pudo ejecutar ninguna orden de desmontaje");
+    for (orden, args) in intentos {
+        match std::process::Command::new(orden).args(*args).arg(p).output() {
+            Err(e) => ultimo = format!("{orden}: {e}"),
+            Ok(salida) if salida.status.success() => return Ok(()),
+            Ok(salida) => ultimo = String::from_utf8_lossy(&salida.stderr).trim().to_string(),
+        }
+    }
+    Err(ultimo)
+}
+
+#[cfg(windows)]
+pub fn soltar_montaje(_p: &Path) -> Result<(), String> {
+    Err("en Windows la unidad se cierra con el proceso que la abrio".into())
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests_montajes {
+    use super::*;
+
+    #[test]
+    fn la_raiz_esta_en_la_tabla_y_una_ruta_inventada_no() {
+        assert!(montaje_en(Path::new("/")).is_some());
+        assert!(montaje_en(Path::new("/no/existe/iuredav-test")).is_none());
+        assert!(!montaje_propio("x", Path::new("/")));
+    }
+}

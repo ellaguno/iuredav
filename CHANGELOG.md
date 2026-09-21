@@ -18,6 +18,18 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.2]
+
+### Corregido
+
+- **Tras actualizar, «la carpeta no está vacía».** Si se instala una versión
+  nueva mientras la anterior sigue abierta en la bandeja con su unidad montada,
+  la nueva IureDav veía la carpeta con contenido y se negaba a montar. Ahora
+  reconoce ese montaje como suyo: lo da por montado al arrancar (y al pulsar
+  «Montar»), y «Desmontar» lo suelta aunque lo hubiera creado la otra sesión.
+  Si lo que hay montado es de otro programa, el mensaje lo dice y explica qué
+  hacer.
+
 ## [0.7.1]
 
 ### Cambiado

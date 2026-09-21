@@ -179,6 +179,16 @@ pub fn preparar_punto(p: &Path) -> Result<()> {
     if !p.is_dir() {
         anyhow::bail!("{} existe y no es una carpeta", p.display());
     }
+    // Una unidad viva de otro programa (o de otra IureDav abierta que no es la
+    // nuestra): decir «no esta vacia» apuntaria al sitio equivocado.
+    if let Some((origen, tipo)) = plataforma::montaje_en(p) {
+        anyhow::bail!(
+            "En {} ya hay una unidad montada ({origen}, {tipo}). Si es de otra IureDav que \
+             sigue abierta, ciérrala desde su icono de la bandeja («Salir») y vuelve a \
+             intentarlo; si no, desmóntala o elige otra carpeta",
+            p.display()
+        );
+    }
     let vacia = fs::read_dir(p)
         .with_context(|| format!("no se pudo leer {}", p.display()))?
         .next()
