@@ -75,16 +75,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # `asset`: sufijo con el que se publican los instaladores. GitHub los lista
+          # por nombre (orden ASCII): el numero deja Windows, macOS y Linux en ese orden.
           - nombre: Linux x86_64
             os: ubuntu-22.04
             triple: x86_64-unknown-linux-gnu
+            asset: 3-linux-x64
           - nombre: macOS (Intel y Apple Silicon)
             os: macos-14
             triple: universal-apple-darwin
             targets: aarch64-apple-darwin,x86_64-apple-darwin
+            asset: 2-macos-universal
           - nombre: Windows x86_64
             os: windows-latest
             triple: x86_64-pc-windows-msvc
+            asset: 1-windows-x64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -127,28 +132,41 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.preparar.outputs.version }}
         run: |
           base="target/${{ matrix.triple }}/release/bundle"
+          mkdir -p dist-release
 
+          # Se copian con nombre uniforme: IureDav_<version>_<orden>-<plataforma>.<ext>.
           # Nada de `mapfile` aqui: macOS trae bash 3.2 —de 2007, por el cambio de
-          # licencia a GPLv3— y `mapfile` es de bash 4. Se acumulan los ficheros en
-          # los parametros posicionales, que funciona en cualquier bash y no se
-          # rompe si un nombre lleva espacios.
-          set --
+          # licencia a GPLv3— y `mapfile` es de bash 4.
+          n=0
           while IFS= read -r -d '' fichero; do
-            set -- "$@" "$fichero"
+            nombre="$(basename "$fichero")"
+            case "$nombre" in
+              *.app.tar.gz.sig) ext="app.tar.gz.sig" ;;
+              *.app.tar.gz)     ext="app.tar.gz" ;;
+              *.AppImage.sig)   ext="AppImage.sig" ;;
+              *.exe.sig)        ext="exe.sig" ;;
+              *.msi.sig)        ext="msi.sig" ;;
+              *.deb.sig)        ext="deb.sig" ;;
+              *.rpm.sig)        ext="rpm.sig" ;;
+              *)                ext="${nombre##*.}" ;;
+            esac
+            cp "$fichero" "dist-release/IureDav_${VERSION}_${{ matrix.asset }}.${ext}"
+            n=$((n + 1))
           done < <(find "$base" -type f \
             \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
                -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' \
                -o -name '*.sig' -o -name '*.app.tar.gz' \) -print0)
 
-          if [ "$#" -eq 0 ]; then
+          if [ "$n" -eq 0 ]; then
             echo "::error::no se genero ningun instalador en $base"
             exit 1
           fi
 
-          printf '  %s\n' "$@"
-          gh release upload "${{ needs.preparar.outputs.etiqueta }}" "$@" --clobber
+          ls -la dist-release
+          gh release upload "${{ needs.preparar.outputs.etiqueta }}" dist-release/* --clobber
 
   # Manifiesto del actualizador (latest.json): una entrada por plataforma con la
   # firma de su instalador. macOS es universal: la misma entrada para ambas arquitecturas.

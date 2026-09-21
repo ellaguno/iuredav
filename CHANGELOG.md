@@ -18,6 +18,28 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.1]
+
+### Cambiado
+
+- Los instaladores de la release se publican con nombre uniforme
+  `IureDav_<versión>_1-windows-x64.exe`, `2-macos-universal.dmg`, `3-linux-x64.deb`…
+  GitHub los lista por nombre, y así aparecen primero Windows, luego macOS y al
+  final Linux.
+
+## [0.7.0]
+
+### Añadido
+
+- **Apps de Iurefficient.** Tarjeta en la lista de conexiones con las tres apps
+  de escritorio (IureTranscribe, IureEditor e IureDav): cuáles están instaladas
+  en este equipo, la última versión publicada y de dónde descargarlas o abrirlas.
+- **Enlaces `iuredav://`.** `iuredav://montar?perfil=<id>` monta una conexión y
+  `iuredav://nueva` abre el formulario; sirven para lanzar IureDav desde otra app
+  o desde la instancia. Una segunda instancia enfoca la ventana abierta en vez de
+  abrir otra.
+- Usa el conector común `iurefficient-connect` 0.4.2.
+
 ## [0.6.0]
 
 ### Añadido
