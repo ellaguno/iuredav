@@ -452,6 +452,46 @@ pub struct AcercaDe {
     url_releases: String,
 }
 
+// ---------------------------------------------------------------------------
+// Apps hermanas (IureTranscribe, IureEditor) y enlaces `iuredav://`.
+// ---------------------------------------------------------------------------
+
+/// Las tres apps de escritorio de Iurefficient: instaladas aquí y última versión publicada.
+#[tauri::command]
+async fn apps_estado(con_red: bool) -> Vec<iurefficient_connect::apps::AppStatus> {
+    if con_red {
+        iurefficient_connect::apps::status(&iurefficient_connect::user_agent("IureDav", env!("CARGO_PKG_VERSION"))).await
+    } else {
+        iurefficient_connect::apps::installed()
+    }
+}
+
+#[tauri::command]
+fn lanzar_app(app: String) -> Resp<()> {
+    let id = iurefficient_connect::apps::AppId::parse(&app).ok_or_else(|| format!("app desconocida: {app}"))?;
+    iurefficient_connect::apps::launch(id, &[]).map_err(|e| format!("{e:#}"))
+}
+
+/// Enlaces `iuredav://…` con los que se abrió la app (p. ej. `iuredav://montar?perfil=<id>`).
+#[tauri::command]
+fn enlaces_iniciales() -> Vec<String> {
+    std::env::args().skip(1).filter(|a| a.to_ascii_lowercase().starts_with("iuredav:")).collect()
+}
+
+/// Muestra la ventana principal (segunda instancia o enlace `iuredav://`) y le
+/// pasa los enlaces recibidos.
+fn atender_argv(app: &AppHandle, argv: &[String]) {
+    if let Some(v) = app.get_webview_window("main") {
+        let _ = v.show();
+        let _ = v.unminimize();
+        let _ = v.set_focus();
+    }
+    let enlaces: Vec<String> = argv.iter().filter(|a| a.to_ascii_lowercase().starts_with("iuredav:")).cloned().collect();
+    if !enlaces.is_empty() {
+        let _ = app.emit("iuredav://enlace", enlaces);
+    }
+}
+
 #[tauri::command]
 fn acerca_de(app: AppHandle) -> AcercaDe {
     AcercaDe {
@@ -687,6 +727,10 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
+        // Una sola instancia: un segundo arranque (o un enlace `iuredav://`) enfoca
+        // la ventana que ya existe en vez de abrir otra IureDav.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| atender_argv(app, &argv)))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -753,10 +797,21 @@ pub fn run() {
                 v.show()?;
             }
 
+            // Esquema `iuredav://` (Linux y Windows lo registran en tiempo de ejecución).
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    tracing::warn!("no se pudo registrar el esquema iuredav://: {e}");
+                }
+            }
             vigilar_actualizaciones(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            apps_estado,
+            lanzar_app,
+            enlaces_iniciales,
             listar_conexiones,
             probar,
             resondear,

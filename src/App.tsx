@@ -6,6 +6,7 @@ import { AcercaDe, Actualizacion, AvanceAnclaje, Aviso, Capacidades, Conexion, P
 import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
+import AppsIurefficient from "./componentes/AppsIurefficient";
 
 /** Un verbo del protocolo no le dice nada a nadie: se nombra la accion. */
 const ACCION: Record<string, string> = {
@@ -74,6 +75,33 @@ export default function App() {
     const p = listen<Actualizacion>("iuredav://actualizacion", (e) => setNueva(e.payload));
     return () => { void p.then((quitar) => quitar()); };
   }, []);
+
+  // Enlaces `iuredav://montar?perfil=<id>` (y `iuredav://nueva`): llegan al abrir la
+  // app con el enlace o, si ya corría, desde la segunda instancia.
+  const atenderEnlaces = useCallback(async (enlaces: string[]) => {
+    for (const raw of enlaces) {
+      let u: URL;
+      try { u = new URL(raw); } catch { continue; }
+      const accion = (u.host || u.pathname.replace(/^\/+/, "")).replace(/\/+$/, "").toLowerCase();
+      if (accion === "nueva") setVista({ pantalla: "nueva" });
+      else if (accion === "montar") {
+        const perfil = u.searchParams.get("perfil");
+        const lista = await api.listar().catch(() => null);
+        const c = lista?.find((x) => x.id === perfil) ?? (lista?.length === 1 ? lista[0] : undefined);
+        if (!c) { setError(`No hay ninguna conexión «${perfil ?? ""}» que montar.`); continue; }
+        if (!c.montado) {
+          setOcupado(c.id);
+          try { await api.montar(c.id, c.escritura); } catch (e) { setError(String(e)); } finally { setOcupado(null); }
+        }
+        await recargar();
+      }
+    }
+  }, [recargar]);
+  useEffect(() => {
+    api.enlacesIniciales().then((e) => { if (e.length) void atenderEnlaces(e); }).catch(() => {});
+    const p = listen<string[]>("iuredav://enlace", (e) => void atenderEnlaces(e.payload));
+    return () => { void p.then((quitar) => quitar()); };
+  }, [atenderEnlaces]);
 
   // Los limites del servidor llegan traducidos desde Rust y se muestran tal cual.
   useEffect(() => {
@@ -591,6 +619,7 @@ export default function App() {
           ))}
         </>
       )}
+      {vista.pantalla === "lista" && <AppsIurefficient version={acerca?.version} />}
       </div>
 
       <footer className="pie">

@@ -86,6 +86,18 @@ export interface AvanceAnclaje {
   terminado: boolean;
 }
 
+export type AppId = "transcribe" | "editor" | "dav";
+/** Una app de escritorio de Iurefficient: si está instalada aquí y su última versión. */
+export interface EstadoApp {
+  id: AppId;
+  name: string;
+  description: string;
+  installed: boolean;
+  path: string | null;
+  downloadUrl: string;
+  latestVersion: string | null;
+}
+
 /** La versión que corre y la página con todas las releases. */
 export interface AcercaDe {
   version: string;
@@ -176,6 +188,12 @@ export const api = {
   fijarArranqueOculto: (activo: boolean) => invoke<void>("fijar_arranque_oculto", { activo }),
 
   acercaDe: () => invoke<AcercaDe>("acerca_de"),
+
+  /** Apps hermanas (IureTranscribe, IureEditor): con red consulta también la última versión. */
+  apps: (conRed: boolean) => invoke<EstadoApp[]>("apps_estado", { conRed }),
+  lanzarApp: (app: AppId) => invoke<void>("lanzar_app", { app }),
+  /** Enlaces `iuredav://` con los que se abrió la app. */
+  enlacesIniciales: () => invoke<string[]>("enlaces_iniciales"),
 
   /** La versión nueva encontrada, si hay; mientras la ventana está abierta llega también por evento. */
   actualizacion: () => invoke<Actualizacion | null>("actualizacion_disponible"),
