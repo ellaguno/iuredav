@@ -18,6 +18,17 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.6.0]
+
+### Añadido
+
+- **Actualizar desde la app.** El aviso de versión nueva tiene ahora «Actualizar
+  ahora»: desmonta las unidades, descarga el instalador firmado, lo aplica y
+  reinicia IureDav. Funciona con el AppImage en Linux y con los instaladores de
+  Windows y macOS; con `.deb` o `.rpm` sigue enlazando la descarga. Las releases
+  publican un `latest.json` firmado con la misma llave que IureEditor e
+  IureTranscribe.
+
 ## [0.5.0]
 
 ### Añadido

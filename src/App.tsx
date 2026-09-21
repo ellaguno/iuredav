@@ -41,6 +41,7 @@ export default function App() {
   const [avisar, setAvisar] = useState(true);
   const [nueva, setNueva] = useState<Actualizacion | null>(null);
   const [nuevaVista, setNuevaVista] = useState(false);
+  const [actualizando, setActualizando] = useState<string | null>(null);
   const [acerca, setAcerca] = useState<AcercaDe | null>(null);
   const [anclando, setAnclando] = useState<Record<string, AvanceAnclaje>>({});
 
@@ -272,15 +273,43 @@ export default function App() {
         <div className="nota aviso">
           <strong>Hay una versión nueva de IureDav: {nueva.version}</strong>
           <p>
-            En la página de la release están los instaladores de Linux, macOS y Windows.
-            Se instala encima de esta, como la primera vez; conviene salir de IureDav
-            antes para que desmonte.
+            {actualizando
+              ? actualizando
+              : "Puede instalarse desde aquí (AppImage, Windows y macOS): se desmontan las unidades, se instala y IureDav se reinicia. Si se instaló con .deb o .rpm, descarga el paquete nuevo."}
           </p>
           <div className="acciones" style={{ marginTop: 8 }}>
-            <button className="btn principal" onClick={() => void openUrl(nueva.url)}>
+            <button
+              className="btn principal"
+              disabled={!!actualizando}
+              onClick={() => {
+                setActualizando("Comprobando…");
+                import("./actualizador")
+                  .then((m) =>
+                    m.instalarActualizacion(
+                      () => Promise.resolve(true),
+                      (t) => setActualizando(t),
+                    ),
+                  )
+                  .then((r) => {
+                    if (r === "no-disponible") {
+                      setActualizando(null);
+                      void openUrl(nueva.url);
+                    }
+                  })
+                  .catch((e) => {
+                    setActualizando(null);
+                    setError(
+                      `No se pudo actualizar desde la app (${String(e)}). Descarga el instalador desde la página de la release.`,
+                    );
+                  });
+              }}
+            >
+              Actualizar ahora
+            </button>
+            <button className="btn plano" onClick={() => void openUrl(nueva.url)}>
               Ver la descarga
             </button>
-            <button className="btn plano" onClick={() => setNuevaVista(true)}>
+            <button className="btn plano" disabled={!!actualizando} onClick={() => setNuevaVista(true)}>
               Ahora no
             </button>
           </div>

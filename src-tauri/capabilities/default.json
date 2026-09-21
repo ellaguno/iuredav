@@ -2,11 +2,16 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Permisos de la ventana principal de IureDav",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "permissions": [
     "core:default",
     "opener:allow-open-url",
     "opener:allow-default-urls",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "updater:default",
+    "process:default",
+    "process:allow-restart"
   ]
 }
