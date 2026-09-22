@@ -18,6 +18,21 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.5]
+
+### Corregido
+
+- **En Ubuntu con Wayland la ventana no se podía arrastrar ni redimensionar por
+  los bordes.** tao (la capa de ventanas de Tauri) conecta en la ventana GTK
+  manejadores de clic y movimiento que se quedan con el evento, y GTK sólo
+  arranca el arrastre de su barra si ningún manejador lo hizo. Los botones de
+  cerrar, minimizar y maximizar tienen su propia subventana y por eso sí
+  funcionaban. Ahora esos manejadores se bloquean y GTK vuelve a mover y
+  redimensionar la ventana como cualquier otra.
+- **En Windows quedaba abierta una ventana de terminal negra** con el título
+  `iuredav-rclone.exe` mientras la unidad estaba montada. El sidecar se lanza
+  ahora sin consola.
+
 ## [0.7.4]
 
 ### Añadido

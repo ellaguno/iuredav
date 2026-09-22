@@ -618,7 +618,66 @@ fn barra_de_titulo_de_gtk(app: &AppHandle) {
     if gtk.titlebar().is_some() {
         gtk.set_titlebar(None::<&gtk::Widget>);
         tracing::info!("retirada la barra de título de tao; en Wayland la pone GTK");
+
+        // Con la barra de GTK los botones funcionan, pero arrastrar la ventana o
+        // redimensionarla por los bordes no: tao conecta en la ventana manejadores
+        // de `button-press-event`, `button-release-event` y `motion-notify-event`
+        // que devuelven Stop, y GTK solo pasa esos eventos a sus gestos de mover y
+        // redimensionar la decoracion si ningun manejador se los quedo
+        // (`_gtk_window_check_handle_wm_event` en gtkwindow.c). Los botones tienen
+        // su propia GdkWindow y no pasan por ahi; la barra y los bordes, si.
+        //
+        // tao los conecta mas tarde (por su cola de peticiones), asi que no se
+        // pueden bloquear ahora. Se hace en el primer evento que llegue: la senal
+        // `event` se emite antes que la especifica, y los manejadores bloqueados
+        // ya no se ejecutan en esa misma emision. Solo se bloquean los de la
+        // ventana; el webview tiene los suyos y no se toca.
+        let hecho = std::cell::Cell::new(false);
+        gtk.connect_event(move |w, _| {
+            if !hecho.get() {
+                hecho.set(true);
+                bloquear_manejadores_de_raton_de_tao(w);
+            }
+            gtk::glib::Propagation::Proceed
+        });
     }
+}
+
+#[cfg(target_os = "linux")]
+fn bloquear_manejadores_de_raton_de_tao(w: &gtk::ApplicationWindow) {
+    use gtk::glib::object::ObjectType;
+    use gtk::glib::translate::IntoGlib;
+    use gtk::glib::{gobject_ffi, StaticType};
+    let tipo = gtk::Widget::static_type().into_glib();
+    let objeto = w.as_ptr() as *mut gobject_ffi::GObject;
+    let mut bloqueados = 0;
+    for senal in [
+        c"button-press-event",
+        c"button-release-event",
+        c"motion-notify-event",
+    ] {
+        // SAFETY: `objeto` es un GObject vivo (lo sostiene la ventana de Tauri) y
+        // las cadenas son literales C. Bloquear manejadores es una operacion
+        // documentada de GObject que no toca memoria ajena.
+        unsafe {
+            let id = gobject_ffi::g_signal_lookup(senal.as_ptr(), tipo);
+            if id != 0 {
+                bloqueados += gobject_ffi::g_signal_handlers_block_matched(
+                    objeto,
+                    gobject_ffi::G_SIGNAL_MATCH_ID,
+                    id,
+                    0,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                );
+            }
+        }
+    }
+    tracing::info!(
+        bloqueados,
+        "manejadores de raton de tao bloqueados; GTK arrastra y redimensiona"
+    );
 }
 
 #[cfg(not(target_os = "linux"))]

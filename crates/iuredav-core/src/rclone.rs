@@ -51,7 +51,8 @@ impl Rclone {
         let usuario = token_aleatorio();
         let password = token_aleatorio();
 
-        let mut proceso = Command::new(binario)
+        let mut orden = Command::new(binario);
+        orden
             .arg("rcd")
             .arg("--rc-addr")
             .arg(format!("127.0.0.1:{puerto}"))
@@ -68,7 +69,13 @@ impl Rclone {
             .arg("INFO")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
+            .kill_on_drop(true);
+        // rclone es un programa de consola: en Windows, sin esta bandera, cada
+        // arranque abre una ventana de terminal negra que se queda mientras la
+        // unidad esta montada.
+        #[cfg(windows)]
+        orden.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        let mut proceso = orden
             .spawn()
             .with_context(|| format!("no se pudo ejecutar rclone en {binario}"))?;
 
