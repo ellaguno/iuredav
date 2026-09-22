@@ -301,6 +301,39 @@ contraseñas `iurdav_…` ni informes de la sonda: los listados de `Casos/` llev
 nombres de expedientes reales. Los tests usan el servidor falso, nunca una
 instancia real.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+*Firma de código gratuita proporcionada por SignPath.io, con certificado de SignPath
+Foundation. Es lo que hace que Windows muestre un editor conocido en lugar de la
+advertencia de SmartScreen.*
+
+- **Committers and reviewers:** Eduardo Llaguno ([@ellaguno](https://github.com/ellaguno)).
+- **Approvers:** Eduardo Llaguno ([@ellaguno](https://github.com/ellaguno)).
+- Every Windows release is built from this repository by GitHub Actions
+  (`.github/workflows/release.yml`), submitted to SignPath from that workflow and
+  approved manually before it is signed. Only the installer published on the
+  [releases page](https://github.com/ellaguno/iuredav/releases) is signed.
+
+### Privacy policy
+
+This program will not transfer any information to other networked systems unless
+specifically requested by the user or the person installing or operating it.
+
+Specifically, IureDav connects only to:
+
+- the WebDAV server (an Iurefficient instance or any other) that the user
+  configures, to mount it as a drive; the transfer is done by the bundled
+  [rclone](https://rclone.org) (MIT), which talks only to that server;
+- `api.github.com`, once at start-up and once a day while it stays in the tray, to
+  check whether a newer release exists. This check is anonymous, downloads
+  nothing and can be turned off in the preferences card.
+
+It collects no telemetry and no usage statistics. Credentials are stored in the
+operating system keychain, never in configuration files.
+
 ## Licencia
 
 MIT — ver [LICENSE](LICENSE).
