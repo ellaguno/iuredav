@@ -332,9 +332,22 @@ pub fn ruta_binario() -> String {
         }
     }
 
+    // Tauri instala el binario externo con el nombre de `externalBin`
+    // (`iuredav-rclone`), sin el triple. Se admite ademas `rclone` a secas por
+    // si alguien lo coloca a mano junto al ejecutable.
+    let empaquetado = if cfg!(windows) {
+        "iuredav-rclone.exe"
+    } else {
+        "iuredav-rclone"
+    };
     if let Ok(exe) = std::env::current_exe() {
         if let Some(d) = exe.parent() {
-            for candidato in [d.join(nombre), d.join("resources").join(nombre)] {
+            for candidato in [
+                d.join(empaquetado),
+                d.join(nombre),
+                d.join("resources").join(empaquetado),
+                d.join("resources").join(nombre),
+            ] {
                 if candidato.exists() {
                     return candidato.to_string_lossy().into_owned();
                 }

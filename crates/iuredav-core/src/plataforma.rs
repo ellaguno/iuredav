@@ -33,7 +33,7 @@ pub fn comprobar() -> Result<(), Requisito> {
                 por_que:
                     "Es lo que permite a Windows mostrar tus documentos como una unidad de disco."
                         .into(),
-                como_instalar: "Descarga e instala WinFsp, y después vuelve a abrir IureDav."
+                como_instalar: "Descarga e instala WinFsp; IureDav lo detectará solo al volver a esta ventana."
                     .into(),
                 url: Some("https://winfsp.dev/rel/".into()),
             });

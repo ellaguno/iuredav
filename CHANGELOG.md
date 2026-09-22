@@ -18,6 +18,20 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.3]
+
+### Corregido
+
+- **«No se pudo ejecutar rclone en rclone»** en máquinas sin rclone instalado.
+  El instalador deja el sidecar como `iuredav-rclone` (Tauri le quita el triple),
+  pero la app lo buscaba como `rclone` junto al ejecutable y, al no encontrarlo,
+  caía al rclone del sistema. Pasaba en Windows, Linux y macOS; sólo funcionaba
+  donde ya había un rclone instalado. Ahora busca primero el empaquetado.
+- **El aviso «Falta WinFsp» no desaparecía tras instalarlo.** Se comprobaba una
+  sola vez al abrir la app. Ahora se vuelve a comprobar cada vez que la ventana
+  recupera el foco y al pulsar «Montar», así que basta con instalar WinFsp (o
+  FUSE en Linux) y volver a IureDav.
+
 ## [0.7.2]
 
 ### Corregido

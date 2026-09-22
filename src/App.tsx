@@ -57,9 +57,17 @@ export default function App() {
   useEffect(() => { void recargar(); }, [recargar]);
 
   // Si a la maquina le falta la pieza que permite montar, se dice al entrar y no
-  // cuando el usuario pulsa Montar y recibe un error del sistema.
+  // cuando el usuario pulsa Montar y recibe un error del sistema. Se vuelve a
+  // mirar cada vez que la ventana recupera el foco: lo normal es instalar WinFsp
+  // o FUSE con IureDav abierto, y el aviso debe desaparecer solo.
   useEffect(() => {
-    api.comprobarSistema().then(setFalta).catch(() => {});
+    const comprobar = () => { api.comprobarSistema().then(setFalta).catch(() => {}); };
+    comprobar();
+    window.addEventListener("focus", comprobar);
+    return () => window.removeEventListener("focus", comprobar);
+  }, []);
+
+  useEffect(() => {
     api.nombreDestino().then(setDestino).catch(() => {});
     api.listarPresets().then(setPresets).catch(() => {});
     api.autoarranque().then(setAuto).catch(() => {});
@@ -177,7 +185,11 @@ export default function App() {
     setError(null);
     try {
       if (c.montado) await api.desmontar(c.id);
-      else await api.montar(c.id, c.escritura);
+      else {
+        // Por si se instaló el requisito sin que la ventana perdiera el foco.
+        setFalta(await api.comprobarSistema());
+        await api.montar(c.id, c.escritura);
+      }
       await recargar();
     } catch (e) {
       setError(String(e));
