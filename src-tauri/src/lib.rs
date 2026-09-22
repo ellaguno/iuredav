@@ -279,7 +279,11 @@ async fn montar_perfil(
     if plataforma::montaje_propio(&id, &perfil.punto_montaje) {
         let punto = perfil.punto_montaje.to_string_lossy().to_string();
         tracing::info!(conexion = %perfil.nombre, %punto, "la unidad ya estaba montada; se adopta");
-        estado.montados.lock().await.insert(id.clone(), punto.clone());
+        estado
+            .montados
+            .lock()
+            .await
+            .insert(id.clone(), punto.clone());
         return Ok(punto);
     }
 
@@ -483,7 +487,11 @@ pub struct AcercaDe {
 #[tauri::command]
 async fn apps_estado(con_red: bool) -> Vec<iurefficient_connect::apps::AppStatus> {
     if con_red {
-        iurefficient_connect::apps::status(&iurefficient_connect::user_agent("IureDav", env!("CARGO_PKG_VERSION"))).await
+        iurefficient_connect::apps::status(&iurefficient_connect::user_agent(
+            "IureDav",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .await
     } else {
         iurefficient_connect::apps::installed()
     }
@@ -491,14 +499,18 @@ async fn apps_estado(con_red: bool) -> Vec<iurefficient_connect::apps::AppStatus
 
 #[tauri::command]
 fn lanzar_app(app: String) -> Resp<()> {
-    let id = iurefficient_connect::apps::AppId::parse(&app).ok_or_else(|| format!("app desconocida: {app}"))?;
+    let id = iurefficient_connect::apps::AppId::parse(&app)
+        .ok_or_else(|| format!("app desconocida: {app}"))?;
     iurefficient_connect::apps::launch(id, &[]).map_err(|e| format!("{e:#}"))
 }
 
 /// Enlaces `iuredav://…` con los que se abrió la app (p. ej. `iuredav://montar?perfil=<id>`).
 #[tauri::command]
 fn enlaces_iniciales() -> Vec<String> {
-    std::env::args().skip(1).filter(|a| a.to_ascii_lowercase().starts_with("iuredav:")).collect()
+    std::env::args()
+        .skip(1)
+        .filter(|a| a.to_ascii_lowercase().starts_with("iuredav:"))
+        .collect()
 }
 
 /// Muestra la ventana principal (segunda instancia o enlace `iuredav://`) y le
@@ -509,7 +521,11 @@ fn atender_argv(app: &AppHandle, argv: &[String]) {
         let _ = v.unminimize();
         let _ = v.set_focus();
     }
-    let enlaces: Vec<String> = argv.iter().filter(|a| a.to_ascii_lowercase().starts_with("iuredav:")).cloned().collect();
+    let enlaces: Vec<String> = argv
+        .iter()
+        .filter(|a| a.to_ascii_lowercase().starts_with("iuredav:"))
+        .cloned()
+        .collect();
     if !enlaces.is_empty() {
         let _ = app.emit("iuredav://enlace", enlaces);
     }

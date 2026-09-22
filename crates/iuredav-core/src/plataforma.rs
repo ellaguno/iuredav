@@ -33,8 +33,9 @@ pub fn comprobar() -> Result<(), Requisito> {
                 por_que:
                     "Es lo que permite a Windows mostrar tus documentos como una unidad de disco."
                         .into(),
-                como_instalar: "Descarga e instala WinFsp; IureDav lo detectará solo al volver a esta ventana."
-                    .into(),
+                como_instalar:
+                    "Descarga e instala WinFsp; IureDav lo detectará solo al volver a esta ventana."
+                        .into(),
                 url: Some("https://winfsp.dev/rel/".into()),
             });
         }
@@ -355,7 +356,11 @@ pub fn soltar_montaje(p: &Path) -> Result<(), String> {
     };
     let mut ultimo = String::from("no se pudo ejecutar ninguna orden de desmontaje");
     for (orden, args) in intentos {
-        match std::process::Command::new(orden).args(*args).arg(p).output() {
+        match std::process::Command::new(orden)
+            .args(*args)
+            .arg(p)
+            .output()
+        {
             Err(e) => ultimo = format!("{orden}: {e}"),
             Ok(salida) if salida.status.success() => return Ok(()),
             Ok(salida) => ultimo = String::from_utf8_lossy(&salida.stderr).trim().to_string(),

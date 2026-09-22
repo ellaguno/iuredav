@@ -13,6 +13,9 @@ package-lock.json.bak
 # `python3 scripts/descargar-rclone.py`, no se versionan.
 /src-tauri/binaries/
 /src-tauri/resources/rclone*
+# Instalador de WinFsp (2 MB) que va dentro del instalador de Windows. Se obtiene
+# con `python3 scripts/descargar-winfsp.py`.
+/src-tauri/windows/winfsp.msi
 
 # --- SECRETOS Y DATOS DE CLIENTES ---
 # El repositorio es PUBLICO. Nada de esto puede entrar nunca.

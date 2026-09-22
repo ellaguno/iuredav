@@ -129,7 +129,7 @@ van en nanosegundos, `CacheMode` es un entero y la clave del trozo de lectura es
 |---|---|---|---|
 | Linux | FUSE 3 | `fuse3` (lo pide el `.deb`) | `~/Iurefficient` |
 | macOS | servidor NFS local de rclone | **nada** | `~/Iurefficient` |
-| Windows | WinFsp | [WinFsp](https://winfsp.dev/rel/) | unidad `I:` |
+| Windows | WinFsp | **nada**: el instalador lo lleva dentro y lo instala si falta | unidad `I:` |
 
 En macOS no hace falta macFUSE. rclone levanta un servidor NFS local y el sistema
 lo monta, así que nadie tiene que instalar una extensión del núcleo ni autorizarla

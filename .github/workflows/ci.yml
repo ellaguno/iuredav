@@ -159,6 +159,11 @@ jobs:
       - name: Descargar rclone para ${{ matrix.triple }}
         run: python3 scripts/descargar-rclone.py --objetivo ${{ matrix.triple }}
 
+      # El instalador de Windows lleva dentro el MSI de WinFsp (ver windows/hooks.nsh).
+      - name: Descargar WinFsp
+        if: startsWith(matrix.os, 'windows')
+        run: python3 scripts/descargar-winfsp.py
+
       - name: Construir la aplicacion
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

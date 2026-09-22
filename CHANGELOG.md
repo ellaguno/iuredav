@@ -18,6 +18,16 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.4]
+
+### Añadido
+
+- **El instalador de Windows instala WinFsp por su cuenta.** Lleva dentro el MSI
+  oficial (2 MB) y lo ejecuta en silencio si la máquina no lo tiene, así que el
+  usuario instala una sola cosa. Si Windows pide reiniciar por el driver, lo dice
+  al terminar. La licencia de WinFsp (GPLv3 con excepción para software libre)
+  permite redistribuir su instalador sin modificar con software libre como IureDav.
+
 ## [0.7.3]
 
 ### Corregido
