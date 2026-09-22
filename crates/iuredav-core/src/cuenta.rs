@@ -79,10 +79,12 @@ pub async fn iniciar_sesion(
         },
     };
 
-    // Sesion compartida con IureTranscribe e IureEditor (mismo llavero).
+    // Sesion compartida con IureTranscribe e IureEditor (mismo llavero), y cuenta
+    // activa para que arranquen ya conectadas sin volver a pedir dominio ni correo.
     if let Ok(json) = serde_json::to_string(&sesion.export()) {
         let _ = secrets::guardar(&cuenta, secrets::Kind::Session, &json);
     }
+    let _ = iurefficient_connect::account::set_active(&cuenta, "IureDav");
 
     // Si otra app ya creo una contrasena de aplicacion para esta cuenta, se reutiliza.
     if let Ok(Some(existente)) = secrets::leer(&cuenta, secrets::Kind::WebDav) {
@@ -108,6 +110,12 @@ pub async fn iniciar_sesion(
         nombre: nombre_de(&usuario),
         reutilizada: false,
     })
+}
+
+/// Cuenta con la que otra app de Iurefficient inicio sesion en este equipo, para
+/// rellenar el formulario de conexion: (dominio, correo).
+pub fn cuenta_activa() -> Option<(String, String)> {
+    iurefficient_connect::account::active().map(|a| (a.domain, a.email))
 }
 
 fn nombre_de(u: &iurefficient_connect::rest::User) -> Option<String> {

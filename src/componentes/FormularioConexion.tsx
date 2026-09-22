@@ -63,6 +63,13 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
 
   useEffect(() => {
     api.listarPresets().then(setPresets).catch(() => {});
+    // Si IureTranscribe o IureEditor ya iniciaron sesión en este equipo, se parte
+    // de esa instancia y correo: solo falta la contraseña.
+    api.cuentaActiva().then((c) => {
+      if (!c) return;
+      setUrl((u) => u || c.dominio);
+      setUsuario((v) => v || c.correo);
+    }).catch(() => {});
   }, []);
 
   const preset = presets.find((p) => p.id === presetId);

@@ -136,6 +136,9 @@ export const api = {
   iniciarSesion: (dominio: string, usuario: string, password: string, totpToken?: string, totpCode?: string) =>
     invoke<ResultadoLogin>("iniciar_sesion", { dominio, usuario, password, totpToken: totpToken ?? null, totpCode: totpCode ?? null }),
 
+  /** Dominio y correo con los que otra app de Iurefficient ya inició sesión en este equipo. */
+  cuentaActiva: () => invoke<{ dominio: string; correo: string } | null>("cuenta_activa"),
+
   probar: (url: string, usuario: string, password: string, escritura: boolean, preset: string) =>
     invoke<Capacidades>("probar", { url, usuario, password, escritura, preset }),
 

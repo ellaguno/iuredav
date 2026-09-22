@@ -18,6 +18,18 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.6]
+
+### Añadido
+
+- **Una sola sesión para las tres apps.** Al iniciar sesión con la cuenta de
+  Iurefficient, IureDav deja anotada la instancia y el correo para IureTranscribe
+  e IureEditor, que arrancan ya conectadas. A la inversa, si otra app inició
+  sesión primero, el formulario de conexión nueva viene con el dominio y el
+  correo puestos y sólo pide la contraseña. La sesión se sincroniza con el
+  llavero antes de cada renovación, para que dos apps abiertas a la vez no se
+  invaliden entre sí (conector 0.5.0).
+
 ## [0.7.5]
 
 ### Corregido

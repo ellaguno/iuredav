@@ -195,6 +195,19 @@ async fn iniciar_sesion(
         .map_err(texto)
 }
 
+/// Dominio y correo con los que otra app de Iurefficient ya inicio sesion en
+/// este equipo, para rellenar el formulario de una conexion nueva.
+#[tauri::command]
+fn cuenta_activa() -> Option<CuentaActiva> {
+    iuredav_core::cuenta::cuenta_activa().map(|(dominio, correo)| CuentaActiva { dominio, correo })
+}
+
+#[derive(Serialize)]
+struct CuentaActiva {
+    dominio: String,
+    correo: String,
+}
+
 #[tauri::command]
 async fn olvidar_conexion(id: String) -> Resp<()> {
     if let Some(p) = perfiles::buscar(&id).map_err(texto)? {
@@ -933,6 +946,7 @@ pub fn run() {
             resondear,
             guardar_conexion,
             iniciar_sesion,
+            cuenta_activa,
             olvidar_conexion,
             montar,
             desmontar,
