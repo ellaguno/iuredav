@@ -79,11 +79,11 @@ pub async fn iniciar_sesion(
         },
     };
 
-    // Sesion compartida con IureTranscribe e IureEditor (mismo llavero), y cuenta
-    // activa para que arranquen ya conectadas sin volver a pedir dominio ni correo.
-    if let Ok(json) = serde_json::to_string(&sesion.export()) {
-        let _ = secrets::guardar(&cuenta, secrets::Kind::Session, &json);
-    }
+    // La sesion (cookies de acceso, refresco y CSRF) ya la guardo el conector en el
+    // llavero compartido con IureTranscribe, IureEditor e IureOCR al iniciar sesion
+    // (`Session::login` / `verify_totp` llaman a `push_shared`). Aqui solo se anota
+    // la cuenta activa para que las demas arranquen ya conectadas sin volver a
+    // pedir dominio ni correo.
     let _ = iurefficient_connect::account::set_active(&cuenta, "IureDav");
 
     // Si otra app ya creo una contrasena de aplicacion para esta cuenta, se reutiliza.

@@ -63,8 +63,8 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
 
   useEffect(() => {
     api.listarPresets().then(setPresets).catch(() => {});
-    // Si IureTranscribe o IureEditor ya iniciaron sesión en este equipo, se parte
-    // de esa instancia y correo: solo falta la contraseña.
+    // Si otra app de Iurefficient (IureTranscribe, IureEditor, IureOCR) ya inició
+    // sesión en este equipo, se parte de esa instancia y correo: solo falta la contraseña.
     api.cuentaActiva().then((c) => {
       if (!c) return;
       setUrl((u) => u || c.dominio);
@@ -232,7 +232,7 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
               <div className="pista">
                 Tu contraseña no se guarda: IureDav inicia sesión, pide a la instancia una contraseña de
                 aplicación a nombre de este equipo y la guarda en el llavero del sistema, compartido con
-                IureTranscribe e IureEditor.
+                IureTranscribe, IureEditor e IureOCR.
               </div>
               <button
                 className="btn"

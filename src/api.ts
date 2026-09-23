@@ -86,7 +86,7 @@ export interface AvanceAnclaje {
   terminado: boolean;
 }
 
-export type AppId = "transcribe" | "editor" | "dav";
+export type AppId = "transcribe" | "editor" | "dav" | "ocr";
 /** Una app de escritorio de Iurefficient: si está instalada aquí y su última versión. */
 export interface EstadoApp {
   id: AppId;
@@ -192,7 +192,7 @@ export const api = {
 
   acercaDe: () => invoke<AcercaDe>("acerca_de"),
 
-  /** Apps hermanas (IureTranscribe, IureEditor): con red consulta también la última versión. */
+  /** Apps hermanas (IureTranscribe, IureEditor, IureOCR): con red consulta también la última versión. */
   apps: (conRed: boolean) => invoke<EstadoApp[]>("apps_estado", { conRed }),
   lanzarApp: (app: AppId) => invoke<void>("lanzar_app", { app }),
   /** Enlaces `iuredav://` con los que se abrió la app. */

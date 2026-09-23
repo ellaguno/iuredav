@@ -493,10 +493,10 @@ pub struct AcercaDe {
 }
 
 // ---------------------------------------------------------------------------
-// Apps hermanas (IureTranscribe, IureEditor) y enlaces `iuredav://`.
+// Apps hermanas (IureTranscribe, IureEditor, IureOCR) y enlaces `iuredav://`.
 // ---------------------------------------------------------------------------
 
-/// Las tres apps de escritorio de Iurefficient: instaladas aquí y última versión publicada.
+/// Las apps de escritorio de Iurefficient: instaladas aquí y última versión publicada.
 #[tauri::command]
 async fn apps_estado(con_red: bool) -> Vec<iurefficient_connect::apps::AppStatus> {
     if con_red {

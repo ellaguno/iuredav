@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { EstadoApp, api } from "../api";
+import { AppId, EstadoApp, api } from "../api";
 
-const REPOS: Record<string, string> = {
+const REPOS: Record<AppId, string> = {
   transcribe: "https://github.com/ellaguno/iuretranscribe",
   editor: "https://github.com/ellaguno/iureditor",
   dav: "https://github.com/ellaguno/iuredav",
+  ocr: "https://github.com/ellaguno/iureocr",
 };
 
-/** «Apps de Iurefficient»: las tres apps de escritorio, cuáles están en este equipo y dónde bajarlas. */
+/** «Apps de Iurefficient»: las apps de escritorio, cuáles están en este equipo y dónde bajarlas. */
 export default function AppsIurefficient({ version }: { version?: string }) {
   const [apps, setApps] = useState<EstadoApp[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +25,8 @@ export default function AppsIurefficient({ version }: { version?: string }) {
       <h3>Apps de Iurefficient</h3>
       <p className="detalle">
         IureDav monta tus documentos como una unidad; IureTranscribe transcribe reuniones y
-        audios; IureEditor edita los documentos y sube versiones. Comparten la cuenta y el llavero.
+        audios; IureEditor edita los documentos y sube versiones; IureOCR reconoce el texto de documentos
+        escaneados e imágenes con Tesseract y trae herramientas PDF. Comparten la cuenta y el llavero.
       </p>
       {apps.map((a) => (
         <div className="fila" key={a.id}>
