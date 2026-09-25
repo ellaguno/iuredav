@@ -32,6 +32,11 @@ pub struct Perfil {
     /// Carpetas marcadas como disponibles sin conexion.
     #[serde(default)]
     pub anclados: Vec<String>,
+    /// Si el usuario la dejo montada. Se vuelve a montar al arrancar IureDav (lo
+    /// normal: al encender el equipo). Solo lo apaga desmontar a mano; salir,
+    /// apagar el equipo o actualizar no cuentan como «ya no la quiero».
+    #[serde(default)]
+    pub remontar: bool,
     /// Ultima medicion de la sonda. Es lo que determina como se monta.
     #[serde(default)]
     pub capacidades: Option<ServerCapabilities>,
@@ -63,6 +68,7 @@ impl Perfil {
             punto_montaje: punto_por_defecto(id),
             escritura: false,
             anclados: Vec::new(),
+            remontar: false,
             capacidades: None,
         }
     }

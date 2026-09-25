@@ -119,6 +119,12 @@ export default function App() {
     return () => { void p.then((quitar) => quitar()); };
   }, []);
 
+  // Unidades que se vuelven a montar solas al arrancar (lo que quedó montado).
+  useEffect(() => {
+    const p = listen("iuredav://montajes", () => void recargar());
+    return () => { void p.then((quitar) => quitar()); };
+  }, [recargar]);
+
   // Progreso de las carpetas que se están dejando disponibles sin conexión.
   useEffect(() => {
     const p = listen<AvanceAnclaje>("iuredav://anclaje", (e) => {

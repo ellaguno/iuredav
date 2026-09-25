@@ -58,17 +58,49 @@ def tinta_por_fila(img: Image.Image, fondo: tuple, umbral: int = 30) -> list[int
     ]
 
 
+def inicio_del_texto(img: Image.Image, fondo: tuple, inicio: int, fin: int,
+                     umbral: int = 30) -> int | None:
+    """Fila donde empieza el logotipo cuando no hay hueco que lo separe.
+
+    El texto es mas ancho que la marca: su primera fila con tinta fuera del
+    ancho que ocupa todo lo de encima (la «W» a la izquierda de la «e») delata
+    el renglon. Como algunas letras suben mas que otras («b», «D»), se corta en
+    la fila con menos tinta de las que hay justo encima de ese punto.
+    """
+    w, h = img.size
+    px = img.load()
+    ventana = max(3, h // 30)
+    perfil = tinta_por_fila(img, fondo, umbral)
+
+    izq, der = w, -1
+    for y in range(h):
+        xs = [x for x in range(w)
+              if sum(abs(a - b) for a, b in zip(px[x, y][:3], fondo)) > umbral]
+        if not xs:
+            continue
+        fuera = sum(1 for x in xs if x < izq or x > der)
+        if inicio <= y < fin and der >= 0 and fuera > 0.01 * w:
+            tramo = range(max(inicio, y - ventana), y)
+            minimo = min(perfil[t] for t in tramo)
+            return max(t for t in tramo if perfil[t] <= minimo * 1.02) + 1
+        izq, der = min(izq, xs[0]), max(der, xs[-1])
+    return None
+
+
 def separar_logotipo(img: Image.Image, fondo: tuple) -> Image.Image:
     """Devuelve solo la marca, cortando por el hueco que la separa del texto.
 
-    Se busca la franja sin tinta en la mitad inferior. Si no la hay —porque
-    alguien cambie el arte de origen— se devuelve la imagen entera, que es peor
-    pero nunca corta por un sitio arbitrario.
+    Se busca la franja sin tinta en el tercio inferior. Si no la hay —en el arte
+    actual la carpeta baja hasta tocar el logotipo— se corta donde empieza el
+    texto (ver `inicio_del_texto`). Si tampoco se encuentra, se devuelve la imagen entera, que es peor pero nunca corta por un
+    sitio arbitrario.
     """
     h = img.size[1]
     perfil = tinta_por_fila(img, fondo)
 
-    inicio, fin = int(h * 0.45), int(h * 0.85)
+    # Desde el 60 %: mas arriba hay huecos dentro de la propia marca (entre el
+    # semicirculo y la «e»).
+    inicio, fin = int(h * 0.60), int(h * 0.85)
     hueco_ini = None
     mejor = None
     for y in range(inicio, fin):
@@ -80,9 +112,12 @@ def separar_logotipo(img: Image.Image, fondo: tuple) -> Image.Image:
                 mejor = (hueco_ini, y)
             hueco_ini = None
 
-    if mejor is None:
-        return img
-    corte = (mejor[0] + mejor[1]) // 2
+    if mejor is not None:
+        corte = (mejor[0] + mejor[1]) // 2
+    else:
+        corte = inicio_del_texto(img, fondo, inicio, fin)
+        if corte is None:
+            return img
     return img.crop((0, 0, img.size[0], corte))
 
 
@@ -210,6 +245,11 @@ def main() -> None:
     DESTINO.mkdir(parents=True, exist_ok=True)
     original = Image.open(ORIGEN).convert("RGBA")
     fondo = color_de_fondo(original)
+    # Si el arte ya trae las esquinas redondeadas (transparentes), se rellenan
+    # con el fondo: si no, `recortar` las toma por dibujo y no quita el margen.
+    plano = Image.new("RGBA", original.size, (*fondo, 255))
+    plano.alpha_composite(original)
+    original = plano
 
     completo = cuadrar(recortar(original, fondo), fondo)
     marca = cuadrar(recortar(separar_logotipo(original, fondo), fondo), fondo)

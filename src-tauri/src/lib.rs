@@ -243,7 +243,9 @@ pub async fn alternar_montaje(app: &AppHandle, id: &str) -> Result<(), String> {
     let estado = app.state::<Estado>();
     let montado = estado.montados.lock().await.contains_key(id);
     if montado {
-        desmontar_perfil(&estado, id).await
+        desmontar_perfil(&estado, id).await?;
+        recordar_montado(id, false);
+        Ok(())
     } else {
         let escritura = perfiles::buscar(id)
             .map_err(texto)?
@@ -276,6 +278,75 @@ async fn montar(
     Ok(punto)
 }
 
+/// Anota en el perfil si hay que volver a montarlo al arrancar. Un fallo al
+/// guardarlo no deshace el montaje: solo se pierde el remontaje.
+fn recordar_montado(id: &str, montado: bool) {
+    match perfiles::buscar(id) {
+        Ok(Some(mut p)) if p.remontar != montado => {
+            p.remontar = montado;
+            if let Err(e) = perfiles::upsert(p) {
+                tracing::warn!(%e, id, "no se pudo anotar el estado del montaje");
+            }
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!(%e, id, "no se pudo anotar el estado del montaje"),
+    }
+}
+
+/// Vuelve a montar lo que el usuario dejo montado en la sesion anterior.
+///
+/// Al encender el equipo IureDav arranca con la sesion, a menudo antes de que
+/// haya red (o de que el llavero este abierto), asi que cada conexion se
+/// reintenta con esperas crecientes durante unos minutos antes de rendirse.
+fn remontar_al_arrancar(app: AppHandle) {
+    const ESPERAS: [u64; 8] = [0, 5, 10, 15, 30, 30, 60, 60];
+    let pendientes: Vec<Perfil> = perfiles::cargar()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|p| p.remontar)
+        .collect();
+    for perfil in pendientes {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let estado = app.state::<Estado>();
+            let mut ultimo_error = String::new();
+            for espera in ESPERAS {
+                tokio::time::sleep(std::time::Duration::from_secs(espera)).await;
+                // Ya montada: adoptada al arrancar o montada a mano mientras tanto.
+                if estado.montados.lock().await.contains_key(&perfil.id) {
+                    return;
+                }
+                // Si la desmontaron o la olvidaron entre intentos, no se insiste.
+                let escritura = match perfiles::buscar(&perfil.id) {
+                    Ok(Some(p)) if p.remontar => p.escritura,
+                    _ => return,
+                };
+                match montar_perfil(&app, &estado, perfil.id.clone(), escritura).await {
+                    Ok(punto) => {
+                        tracing::info!(conexion = %perfil.nombre, %punto, "vuelta a montar al arrancar");
+                        bandeja::refrescar(&app).await;
+                        let _ = app.emit("iuredav://montajes", ());
+                        return;
+                    }
+                    Err(e) => {
+                        tracing::warn!(conexion = %perfil.nombre, %e, "no se pudo volver a montar; se reintentará");
+                        ultimo_error = e;
+                    }
+                }
+            }
+            let _ = app.emit(
+                "iuredav://aviso",
+                MensajeAmistoso {
+                    titulo: format!("No se pudo volver a montar «{}»", perfil.nombre),
+                    detalle: ultimo_error,
+                    severidad: iuredav_core::errors::Severidad::Aviso,
+                    ruta: None,
+                },
+            );
+        });
+    }
+}
+
 async fn montar_perfil(
     app: &AppHandle,
     estado: &State<'_, Estado>,
@@ -297,6 +368,7 @@ async fn montar_perfil(
             .lock()
             .await
             .insert(id.clone(), punto.clone());
+        recordar_montado(&id, true);
         return Ok(punto);
     }
 
@@ -354,6 +426,7 @@ async fn montar_perfil(
         .lock()
         .await
         .insert(id.clone(), punto.clone());
+    recordar_montado(&id, true);
 
     // Lo anclado se recalienta al montar: la cache caduca y puede haber sido
     // desalojada desde la ultima sesion.
@@ -364,9 +437,19 @@ async fn montar_perfil(
     Ok(punto)
 }
 
+/// `recordar`: se desmonta pero sin olvidar que estaba montada, para que vuelva
+/// al arrancar. Lo usa el actualizador, que desmonta solo para poder instalar.
 #[tauri::command]
-async fn desmontar(app: AppHandle, estado: State<'_, Estado>, id: String) -> Resp<()> {
+async fn desmontar(
+    app: AppHandle,
+    estado: State<'_, Estado>,
+    id: String,
+    recordar: Option<bool>,
+) -> Resp<()> {
     let r = desmontar_perfil(&estado, &id).await;
+    if r.is_ok() && !recordar.unwrap_or(false) {
+        recordar_montado(&id, false);
+    }
     bandeja::refrescar(&app).await;
     r
 }
@@ -871,6 +954,7 @@ pub fn run() {
                     let mut montados = estado.montados.blocking_lock();
                     for (id, nombre, punto) in vivos {
                         tracing::info!(conexion = %nombre, %punto, "la unidad ya estaba montada; se adopta");
+                        recordar_montado(&id, true);
                         montados.insert(id, punto);
                     }
                 }
@@ -935,6 +1019,7 @@ pub fn run() {
                 }
             }
             vigilar_actualizaciones(app.handle().clone());
+            remontar_al_arrancar(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

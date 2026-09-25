@@ -18,6 +18,23 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.7.8] — 2026-09-25
+
+### Añadido
+
+- **Las unidades que quedaron montadas vuelven solas al arrancar.** Al encender
+  el equipo (o al abrir IureDav de nuevo), se vuelven a montar las conexiones que
+  estaban montadas; las que el usuario desmontó a mano se quedan como estaban.
+  Salir desde la bandeja, apagar el equipo o actualizar no cuentan como
+  desmontar. Si todavía no hay red, cada conexión se reintenta durante unos
+  minutos y, si no lo logra, avisa en la ventana.
+
+### Cambiado
+
+- Icono nuevo, con la marca más grande. El generador de iconos acepta arte con
+  las esquinas ya redondeadas y separa la marca del logotipo aunque no haya un
+  hueco entre ambos.
+
 ## [0.7.6]
 
 ### Añadido
