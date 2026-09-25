@@ -16,6 +16,8 @@
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
+use iurefficient_connect::lang::pick;
+use iurefficient_connect::tr;
 use reqwest::{Client, Response, StatusCode, Url};
 use tracing::{debug, info, warn};
 
@@ -73,7 +75,8 @@ impl Probe {
         if !base.ends_with('/') {
             base.push('/');
         }
-        let base = Url::parse(&base).with_context(|| format!("URL inválida: {base}"))?;
+        let base = Url::parse(&base)
+            .with_context(|| tr!("Invalid URL: {base}", "URL inválida: {base}"))?;
         if base.scheme() != "https" && base.host_str() != Some("localhost") {
             warn!("la conexión no es HTTPS: la contraseña de aplicación viajará en claro");
         }
@@ -105,7 +108,7 @@ impl Probe {
     fn url(&self, rel: &str) -> Result<Url> {
         self.base
             .join(rel)
-            .with_context(|| format!("ruta inválida: {rel}"))
+            .with_context(|| tr!("invalid path: {rel}", "ruta inválida: {rel}"))
     }
 
     async fn peticion(&self, verbo: &str, rel: &str) -> Result<reqwest::RequestBuilder> {
@@ -145,7 +148,10 @@ impl Probe {
                 debug!(allow = ?caps.anunciado.allow, "el servidor anuncia");
             }
             Err(e) => {
-                return Err(anyhow!("no se pudo contactar con el servidor: {e}"));
+                return Err(anyhow!(tr!(
+                    "couldn't reach the server: {e}",
+                    "no se pudo contactar con el servidor: {e}"
+                )));
             }
         }
 
@@ -160,9 +166,10 @@ impl Probe {
         // Si ni siquiera esto funciona, lo mas probable es que la contrasena de
         // aplicacion no sea valida. Merece un mensaje propio.
         if let Verdict::Rechazado { status: 401 } = caps.real.propfind_depth0 {
-            return Err(anyhow!(
+            return Err(anyhow!(pick(
+                "401 Unauthorized: the app password (iurdav_…) is invalid or was revoked",
                 "401 No autorizado: la contraseña de aplicación (iurdav_…) no es válida o fue revocada"
-            ));
+            )));
         }
 
         // 3. PROPFIND Depth 1: el listado real de la raiz.
@@ -566,7 +573,12 @@ fn construir_cliente() -> Result<Client> {
         // llegar a workers distintos de gunicorn.
         .pool_max_idle_per_host(0)
         .build()
-        .context("no se pudo construir el cliente HTTP")
+        .with_context(|| {
+            pick(
+                "couldn't build the HTTP client",
+                "no se pudo construir el cliente HTTP",
+            )
+        })
 }
 
 fn leer_anuncio(r: &Response) -> Anunciado {

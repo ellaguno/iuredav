@@ -21,6 +21,8 @@ use iuredav_core::presets::Preset;
 use iuredav_core::probe::Probe;
 use iuredav_core::rclone::{ruta_binario, Rclone};
 use iuredav_core::secretos;
+use iurefficient_connect::lang::{self, pick};
+use iurefficient_connect::tr;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
@@ -115,13 +117,19 @@ async fn probar(
 /// La contrasena sale del llavero: aqui ya no la tiene el frontend.
 #[tauri::command]
 async fn resondear(id: String, escritura: bool) -> Resp<ServerCapabilities> {
-    let mut perfil = perfiles::buscar(&id)
-        .map_err(texto)?
-        .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
+    let mut perfil = perfiles::buscar(&id).map_err(texto)?.ok_or_else(|| {
+        tr!(
+            "the connection '{id}' doesn't exist",
+            "no existe la conexión '{id}'"
+        )
+    })?;
 
     let password = secretos::leer(&id, &perfil.usuario)
         .map_err(texto)?
-        .ok_or("no hay contraseña guardada para esta conexión")?;
+        .ok_or(pick(
+            "there's no saved password for this connection",
+            "no hay contraseña guardada para esta conexión",
+        ))?;
 
     let caps = Probe::con_preset(&perfil.url, &perfil.usuario, &password, perfil.preset())
         .map_err(texto)?
@@ -337,7 +345,11 @@ fn remontar_al_arrancar(app: AppHandle) {
             let _ = app.emit(
                 "iuredav://aviso",
                 MensajeAmistoso {
-                    titulo: format!("No se pudo volver a montar «{}»", perfil.nombre),
+                    titulo: tr!(
+                        "Couldn't mount \"{}\" again",
+                        "No se pudo volver a montar «{}»",
+                        perfil.nombre
+                    ),
                     detalle: ultimo_error,
                     severidad: iuredav_core::errors::Severidad::Aviso,
                     ruta: None,
@@ -353,9 +365,12 @@ async fn montar_perfil(
     id: String,
     escritura: bool,
 ) -> Resp<String> {
-    let mut perfil = perfiles::buscar(&id)
-        .map_err(texto)?
-        .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
+    let mut perfil = perfiles::buscar(&id).map_err(texto)?.ok_or_else(|| {
+        tr!(
+            "the connection '{id}' doesn't exist",
+            "no existe la conexión '{id}'"
+        )
+    })?;
 
     // Ya montada por otra sesion de IureDav (la version anterior sigue abierta
     // tras actualizar, o el montaje sobrevivio al proceso): se adopta tal cual en
@@ -374,7 +389,10 @@ async fn montar_perfil(
 
     let password = secretos::leer(&id, &perfil.usuario)
         .map_err(texto)?
-        .ok_or("no hay contraseña guardada para esta conexión")?;
+        .ok_or(pick(
+            "there's no saved password for this connection",
+            "no hay contraseña guardada para esta conexión",
+        ))?;
 
     // Sin medicion no hay montaje: solo la fase de lectura, que no deja rastro.
     let caps = match perfil.capacidades.clone() {
@@ -394,9 +412,12 @@ async fn montar_perfil(
     // Antes de nada: si a la maquina le falta la pieza que permite montar, el
     // error de rclone no diria nada util. Mejor explicarlo aqui.
     if let Err(r) = plataforma::comprobar() {
-        return Err(format!(
+        return Err(tr!(
+            "{} is missing. {} {}",
             "Falta {}. {} {}",
-            r.que_falta, r.por_que, r.como_instalar
+            r.que_falta,
+            r.por_que,
+            r.como_instalar
         ));
     }
 
@@ -409,9 +430,10 @@ async fn montar_perfil(
 
     asegurar_sidecar(app, estado).await?;
     let guard = estado.rclone.lock().await;
-    let rc = guard
-        .as_ref()
-        .ok_or("el sidecar de rclone no esta disponible")?;
+    let rc = guard.as_ref().ok_or(pick(
+        "the rclone sidecar isn't available",
+        "el sidecar de rclone no esta disponible",
+    ))?;
 
     rc.fijar_gestor(perfil.preset().donde_gestionar.clone());
     rc.crear_remoto(&id, &perfil.url, &perfil.usuario, &password)
@@ -455,17 +477,19 @@ async fn desmontar(
 }
 
 async fn desmontar_perfil(estado: &State<'_, Estado>, id: &str) -> Resp<()> {
-    let punto = estado
-        .montados
-        .lock()
-        .await
-        .remove(id)
-        .ok_or("esa conexión no esta montada")?;
+    let punto = estado.montados.lock().await.remove(id).ok_or(pick(
+        "that connection isn't mounted",
+        "esa conexión no esta montada",
+    ))?;
 
     let guard = estado.rclone.lock().await;
     let por_rclone = match guard.as_ref() {
         Some(rc) => rc.desmontar(&punto).await.map_err(texto),
-        None => Err("el sidecar de rclone no esta disponible".to_string()),
+        None => Err(pick(
+            "the rclone sidecar isn't available",
+            "el sidecar de rclone no esta disponible",
+        )
+        .to_string()),
     };
     let ruta = std::path::Path::new(&punto);
     if plataforma::montaje_en(ruta).is_none() {
@@ -476,8 +500,14 @@ async fn desmontar_perfil(estado: &State<'_, Estado>, id: &str) -> Resp<()> {
     match plataforma::soltar_montaje(ruta) {
         Ok(()) => Ok(()),
         Err(e) => Err(match por_rclone {
-            Err(e1) => format!("{e1}; tampoco se pudo desmontar desde el sistema: {e}"),
-            Ok(()) => format!("no se pudo desmontar {punto}: {e}"),
+            Err(e1) => tr!(
+                "{e1}; it couldn't be unmounted from the system either: {e}",
+                "{e1}; tampoco se pudo desmontar desde el sistema: {e}"
+            ),
+            Ok(()) => tr!(
+                "couldn't unmount {punto}: {e}",
+                "no se pudo desmontar {punto}: {e}"
+            ),
         }),
     }
 }
@@ -490,7 +520,10 @@ async fn desmontar_perfil(estado: &State<'_, Estado>, id: &str) -> Resp<()> {
 #[tauri::command]
 async fn refrescar(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<()> {
     let guard = estado.rclone.lock().await;
-    let rc = guard.as_ref().ok_or("no hay ninguna conexión activa")?;
+    let rc = guard.as_ref().ok_or(pick(
+        "there's no active connection",
+        "no hay ninguna conexión activa",
+    ))?;
     rc.refrescar(&id, &ruta).await.map_err(texto)
 }
 
@@ -503,13 +536,10 @@ async fn refrescar(estado: State<'_, Estado>, id: String, ruta: String) -> Resp<
 #[tauri::command]
 async fn abrir_carpeta(app: AppHandle, estado: State<'_, Estado>, id: String) -> Resp<()> {
     use tauri_plugin_opener::OpenerExt;
-    let punto = estado
-        .montados
-        .lock()
-        .await
-        .get(&id)
-        .cloned()
-        .ok_or("esa conexión no está montada")?;
+    let punto = estado.montados.lock().await.get(&id).cloned().ok_or(pick(
+        "that connection isn't mounted",
+        "esa conexión no está montada",
+    ))?;
     app.opener().open_path(punto, None::<&str>).map_err(texto)
 }
 
@@ -528,9 +558,12 @@ fn nombre_destino() -> &'static str {
 /// decision del usuario sobre esa conexion, no de una sesion suelta.
 #[tauri::command]
 async fn cambiar_modo(id: String, escritura: bool) -> Resp<()> {
-    let mut p = perfiles::buscar(&id)
-        .map_err(texto)?
-        .ok_or_else(|| format!("no existe la conexión '{id}'"))?;
+    let mut p = perfiles::buscar(&id).map_err(texto)?.ok_or_else(|| {
+        tr!(
+            "the connection '{id}' doesn't exist",
+            "no existe la conexión '{id}'"
+        )
+    })?;
     p.escritura = escritura;
     perfiles::upsert(p).map_err(texto)
 }
@@ -568,6 +601,35 @@ fn fijar_arranque_oculto(activo: bool) -> Resp<()> {
     ajustes::guardar(&a).map_err(texto)
 }
 
+/// Idioma de la interfaz ya resuelto (`"en"` o `"es"`): con el ajuste en
+/// automatico es el del sistema. El frontend usa este, nunca el del navegador.
+#[tauri::command]
+fn ui_language() -> &'static str {
+    lang::current().code()
+}
+
+/// El ajuste tal cual: `"auto"`, `"en"` o `"es"`.
+#[tauri::command]
+fn idioma_preferido() -> String {
+    ajustes::cargar().ui_language
+}
+
+/// Guarda el idioma elegido y lo aplica al momento: mensajes de Rust, menu de la
+/// bandeja y, al devolver el idioma resuelto, la ventana.
+#[tauri::command]
+async fn fijar_idioma(app: AppHandle, idioma: String) -> Resp<&'static str> {
+    let idioma = match idioma.as_str() {
+        "en" | "es" => idioma,
+        _ => "auto".to_string(),
+    };
+    let mut a = ajustes::cargar();
+    a.ui_language = idioma;
+    ajustes::guardar(&a).map_err(texto)?;
+    lang::set(lang::resolve(&a.ui_language));
+    bandeja::refrescar(&app).await;
+    Ok(lang::current().code())
+}
+
 /// Lo que ensena el pie de la ventana: que version es esta y donde estan todas.
 #[derive(Serialize)]
 pub struct AcercaDe {
@@ -596,7 +658,7 @@ async fn apps_estado(con_red: bool) -> Vec<iurefficient_connect::apps::AppStatus
 #[tauri::command]
 fn lanzar_app(app: String) -> Resp<()> {
     let id = iurefficient_connect::apps::AppId::parse(&app)
-        .ok_or_else(|| format!("app desconocida: {app}"))?;
+        .ok_or_else(|| tr!("unknown app: {app}", "app desconocida: {app}"))?;
     iurefficient_connect::apps::launch(id, &[]).map_err(|e| format!("{e:#}"))
 }
 
@@ -811,27 +873,34 @@ async fn anclar(
     id: String,
     carpeta: String,
 ) -> Resp<()> {
-    let punto = estado
-        .montados
-        .lock()
-        .await
-        .get(&id)
-        .cloned()
-        .ok_or("monta la conexión antes de elegir carpetas sin conexión")?;
+    let punto = estado.montados.lock().await.get(&id).cloned().ok_or(pick(
+        "mount the connection before choosing offline folders",
+        "monta la conexión antes de elegir carpetas sin conexión",
+    ))?;
 
     let relativa = std::path::Path::new(&carpeta)
         .strip_prefix(&punto)
-        .map_err(|_| format!("esa carpeta no está dentro de {punto}"))?
+        .map_err(|_| {
+            tr!(
+                "that folder isn't inside {punto}",
+                "esa carpeta no está dentro de {punto}"
+            )
+        })?
         .to_string_lossy()
         .replace('\\', "/");
 
     if relativa.is_empty() {
-        return Err("elige una carpeta concreta, no la raíz de la unidad".into());
+        return Err(pick(
+            "choose a specific folder, not the root of the drive",
+            "elige una carpeta concreta, no la raíz de la unidad",
+        )
+        .into());
     }
 
-    let mut perfil = perfiles::buscar(&id)
-        .map_err(texto)?
-        .ok_or("no existe esa conexión")?;
+    let mut perfil = perfiles::buscar(&id).map_err(texto)?.ok_or(pick(
+        "that connection doesn't exist",
+        "no existe esa conexión",
+    ))?;
     if !perfil.anclados.contains(&relativa) {
         perfil.anclados.push(relativa.clone());
         perfiles::upsert(perfil).map_err(texto)?;
@@ -843,9 +912,10 @@ async fn anclar(
 
 #[tauri::command]
 async fn desanclar(id: String, ruta: String) -> Resp<()> {
-    let mut perfil = perfiles::buscar(&id)
-        .map_err(texto)?
-        .ok_or("no existe esa conexión")?;
+    let mut perfil = perfiles::buscar(&id).map_err(texto)?.ok_or(pick(
+        "that connection doesn't exist",
+        "no existe esa conexión",
+    ))?;
     perfil.anclados.retain(|r| r != &ruta);
     perfiles::upsert(perfil).map_err(texto)
 }
@@ -913,6 +983,9 @@ fn punto_sugerido(id: String) -> String {
 fn _tipo_aviso(_: MensajeAmistoso) {}
 
 pub fn run() {
+    // Antes que ningun mensaje: el idioma sale del ajuste o, en automatico, del sistema.
+    lang::set(lang::resolve(&ajustes::cargar().ui_language));
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -1050,6 +1123,9 @@ pub fn run() {
             actualizacion_disponible,
             avisar_actualizaciones,
             fijar_avisar_actualizaciones,
+            ui_language,
+            idioma_preferido,
+            fijar_idioma,
             anclar,
             desanclar,
         ])

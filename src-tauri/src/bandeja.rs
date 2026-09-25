@@ -9,6 +9,9 @@ use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, Wry};
 
+use iurefficient_connect::lang::pick;
+use iurefficient_connect::tr;
+
 use std::collections::HashMap;
 
 use iuredav_core::actualizaciones::Actualizacion;
@@ -35,7 +38,7 @@ fn menu(
     items.push(Box::new(MenuItem::with_id(
         app,
         "mostrar",
-        "Abrir IureDav",
+        pick("Open IureDav", "Abrir IureDav"),
         true,
         None::<&str>,
     )?));
@@ -46,7 +49,11 @@ fn menu(
         items.push(Box::new(MenuItem::with_id(
             app,
             "actualizar",
-            format!("Hay una versión nueva: {}…", a.version),
+            tr!(
+                "A new version is available: {}…",
+                "Hay una versión nueva: {}…",
+                a.version
+            ),
             true,
             None::<&str>,
         )?));
@@ -58,15 +65,21 @@ fn menu(
     let perfiles = perfiles::cargar().unwrap_or_default();
 
     if perfiles.is_empty() {
-        let vacio = MenuItem::with_id(app, "vacio", "No hay conexiones", false, None::<&str>)?;
+        let vacio = MenuItem::with_id(
+            app,
+            "vacio",
+            pick("No connections", "No hay conexiones"),
+            false,
+            None::<&str>,
+        )?;
         items.push(Box::new(vacio));
     } else {
         for p in &perfiles {
             let esta = montados.contains_key(&p.id);
             let texto = if esta {
-                format!("Desmontar {}", p.nombre)
+                tr!("Unmount {}", "Desmontar {}", p.nombre)
             } else {
-                format!("Montar {}", p.nombre)
+                tr!("Mount {}", "Montar {}", p.nombre)
             };
             items.push(Box::new(MenuItem::with_id(
                 app,
@@ -82,7 +95,7 @@ fn menu(
     items.push(Box::new(MenuItem::with_id(
         app,
         "salir",
-        "Salir",
+        pick("Quit", "Salir"),
         true,
         None::<&str>,
     )?));
@@ -91,7 +104,8 @@ fn menu(
     Menu::with_items(app, &refs)
 }
 
-/// Rehace el menu tras montar o desmontar, para que los textos digan la verdad.
+/// Rehace el menu tras montar o desmontar, para que los textos digan la verdad;
+/// tambien al cambiar de idioma.
 pub async fn refrescar(app: &AppHandle) {
     let estado = app.state::<Estado>();
     let montados = estado.montados.lock().await.clone();

@@ -10,7 +10,9 @@
 //! contrasena de aplicacion resultante.
 
 use anyhow::{Context, Result};
+use iurefficient_connect::lang::pick;
 use iurefficient_connect::rest::{Login, Session};
+use iurefficient_connect::tr;
 use iurefficient_connect::{api, secrets, user_agent, Account};
 
 /// Resultado de un intento de inicio de sesion.
@@ -43,8 +45,8 @@ pub fn etiqueta_equipo() -> String {
                 .map(|h| h.trim().to_string())
         })
         .filter(|h| !h.is_empty())
-        .unwrap_or_else(|| "este equipo".to_string());
-    format!("IureDav en {equipo}")
+        .unwrap_or_else(|| pick("this computer", "este equipo").to_string());
+    tr!("IureDav on {equipo}", "IureDav en {equipo}")
 }
 
 /// Inicia sesion y devuelve una contrasena de aplicacion WebDAV.
@@ -64,7 +66,7 @@ pub async fn iniciar_sesion(
         Some((token, codigo)) if !token.is_empty() => sesion
             .verify_totp(token, codigo)
             .await
-            .context("no se pudo verificar el codigo")?,
+            .with_context(|| pick("couldn't verify the code", "no se pudo verificar el codigo"))?,
         _ => match sesion.login(password).await? {
             Login::Ok(u) => u,
             Login::TotpRequired { totp_token } => {
@@ -101,7 +103,12 @@ pub async fn iniciar_sesion(
 
     let creada = api::create_webdav_token(&sesion, &etiqueta_equipo(), None)
         .await
-        .context("no se pudo crear la contrasena de aplicacion")?;
+        .with_context(|| {
+            pick(
+                "couldn't create the app password",
+                "no se pudo crear la contrasena de aplicacion",
+            )
+        })?;
     let _ = secrets::guardar(&cuenta, secrets::Kind::WebDav, &creada.secret);
     Ok(ResultadoLogin {
         requiere_totp: false,
@@ -136,6 +143,6 @@ mod tests {
 
     #[test]
     fn la_etiqueta_nombra_a_iuredav() {
-        assert!(etiqueta_equipo().starts_with("IureDav en "));
+        assert!(etiqueta_equipo().starts_with("IureDav "));
     }
 }

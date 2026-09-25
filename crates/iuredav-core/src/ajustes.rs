@@ -8,6 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use iurefficient_connect::tr;
 use serde::{Deserialize, Serialize};
 
 use crate::perfiles::directorio_config;
@@ -25,6 +26,14 @@ pub struct Ajustes {
     /// el programa hable con GitHub por su cuenta.
     #[serde(default = "verdadero")]
     pub avisar_actualizaciones: bool,
+    /// Idioma de la interfaz: `"auto"` (el del sistema), `"en"` o `"es"`. Los
+    /// ficheros de versiones anteriores no lo tienen y quedan en `"auto"`.
+    #[serde(default = "idioma_auto", rename = "uiLanguage", alias = "ui_language")]
+    pub ui_language: String,
+}
+
+fn idioma_auto() -> String {
+    "auto".into()
 }
 
 fn verdadero() -> bool {
@@ -36,6 +45,7 @@ impl Default for Ajustes {
         Self {
             arrancar_oculto: true,
             avisar_actualizaciones: true,
+            ui_language: idioma_auto(),
         }
     }
 }
@@ -61,9 +71,10 @@ fn leer() -> Result<Ajustes> {
     if !f.exists() {
         return Ok(Ajustes::default());
     }
-    let texto =
-        fs::read_to_string(&f).with_context(|| format!("no se pudo leer {}", f.display()))?;
-    serde_json::from_str(&texto).with_context(|| format!("{} esta corrupto", f.display()))
+    let texto = fs::read_to_string(&f)
+        .with_context(|| tr!("couldn't read {}", "no se pudo leer {}", f.display()))?;
+    serde_json::from_str(&texto)
+        .with_context(|| tr!("{} is corrupt", "{} esta corrupto", f.display()))
 }
 
 pub fn guardar(ajustes: &Ajustes) -> Result<()> {
@@ -72,8 +83,14 @@ pub fn guardar(ajustes: &Ajustes) -> Result<()> {
     // dejar el fichero truncado.
     let tmp = f.with_extension("json.tmp");
     fs::write(&tmp, serde_json::to_string_pretty(ajustes)?)
-        .with_context(|| format!("no se pudo escribir {}", tmp.display()))?;
-    fs::rename(&tmp, &f).with_context(|| format!("no se pudo reemplazar {}", f.display()))?;
+        .with_context(|| tr!("couldn't write {}", "no se pudo escribir {}", tmp.display()))?;
+    fs::rename(&tmp, &f).with_context(|| {
+        tr!(
+            "couldn't replace {}",
+            "no se pudo reemplazar {}",
+            f.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -94,6 +111,7 @@ mod tests {
         let a: Ajustes = serde_json::from_str("{}").unwrap();
         assert!(a.arrancar_oculto);
         assert!(a.avisar_actualizaciones);
+        assert_eq!(a.ui_language, "auto");
     }
 
     #[test]
@@ -101,6 +119,7 @@ mod tests {
         let a = Ajustes {
             arrancar_oculto: false,
             avisar_actualizaciones: false,
+            ui_language: "es".into(),
         };
         let json = serde_json::to_string(&a).unwrap();
         assert_eq!(serde_json::from_str::<Ajustes>(&json).unwrap(), a);

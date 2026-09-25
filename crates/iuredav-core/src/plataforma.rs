@@ -10,6 +10,7 @@
 
 use std::path::Path;
 
+use iurefficient_connect::lang::pick;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,12 +31,16 @@ pub fn comprobar() -> Result<(), Requisito> {
         if !winfsp_instalado() {
             return Err(Requisito {
                 que_falta: "WinFsp".into(),
-                por_que:
-                    "Es lo que permite a Windows mostrar tus documentos como una unidad de disco."
-                        .into(),
-                como_instalar:
-                    "Descarga e instala WinFsp; IureDav lo detectará solo al volver a esta ventana."
-                        .into(),
+                por_que: pick(
+                    "It's what lets Windows show your documents as a disk drive.",
+                    "Es lo que permite a Windows mostrar tus documentos como una unidad de disco.",
+                )
+                .into(),
+                como_instalar: pick(
+                    "Download and install WinFsp; IureDav will detect it on its own when you come back to this window.",
+                    "Descarga e instala WinFsp; IureDav lo detectará solo al volver a esta ventana.",
+                )
+                .into(),
                 url: Some("https://winfsp.dev/rel/".into()),
             });
         }
@@ -46,10 +51,16 @@ pub fn comprobar() -> Result<(), Requisito> {
         if !fuse_disponible() {
             return Err(Requisito {
                 que_falta: "FUSE 3".into(),
-                por_que: "Es lo que permite mostrar tus documentos como una carpeta del sistema."
-                    .into(),
-                como_instalar: "sudo apt install fuse3   (o el equivalente de tu distribución)"
-                    .into(),
+                por_que: pick(
+                    "It's what lets your documents show up as a system folder.",
+                    "Es lo que permite mostrar tus documentos como una carpeta del sistema.",
+                )
+                .into(),
+                como_instalar: pick(
+                    "sudo apt install fuse3   (or your distribution's equivalent)",
+                    "sudo apt install fuse3   (o el equivalente de tu distribución)",
+                )
+                .into(),
                 url: None,
             });
         }
@@ -137,7 +148,11 @@ pub fn montaje_muerto(_p: &Path) -> bool {
 #[cfg(unix)]
 pub fn soltar_montaje_muerto(p: &Path) -> Result<(), String> {
     if !montaje_muerto(p) {
-        return Err("ahi no hay ningun montaje sin cerrar".into());
+        return Err(pick(
+            "there's no stale mount there",
+            "ahi no hay ningun montaje sin cerrar",
+        )
+        .into());
     }
 
     // En diferido (`-z` / `-l`): basta con que una terminal tenga su directorio
@@ -154,7 +169,10 @@ pub fn soltar_montaje_muerto(p: &Path) -> Result<(), String> {
         ]
     };
 
-    let mut ultimo = String::from("no se pudo ejecutar ninguna orden de desmontaje");
+    let mut ultimo = String::from(pick(
+        "no unmount command could be run",
+        "no se pudo ejecutar ninguna orden de desmontaje",
+    ));
     for (orden, args) in intentos {
         match std::process::Command::new(orden)
             .args(*args)
@@ -173,23 +191,31 @@ pub fn soltar_montaje_muerto(p: &Path) -> Result<(), String> {
 
 #[cfg(windows)]
 pub fn soltar_montaje_muerto(_p: &Path) -> Result<(), String> {
-    Err("ahi no hay ningun montaje sin cerrar".into())
+    Err(pick(
+        "there's no stale mount there",
+        "ahi no hay ningun montaje sin cerrar",
+    )
+    .into())
 }
 
 /// Como se llama el sitio donde aparecen los archivos, en cada plataforma. La UI
 /// lo usa para no hablar de "punto de montaje", que no significa nada fuera de Unix.
 pub fn nombre_del_destino() -> &'static str {
     if cfg!(target_os = "windows") {
-        "Unidad"
+        pick("Drive", "Unidad")
     } else {
-        "Carpeta"
+        pick("Folder", "Carpeta")
     }
 }
 
 /// Comprueba que el destino tenga la forma que espera la plataforma.
 pub fn validar_destino(destino: &str) -> Result<(), String> {
     if destino.trim().is_empty() {
-        return Err("Indica donde quieres que aparezcan tus documentos.".into());
+        return Err(pick(
+            "Choose where you want your documents to appear.",
+            "Indica donde quieres que aparezcan tus documentos.",
+        )
+        .into());
     }
     if cfg!(target_os = "windows") {
         // En Windows lo normal es una letra de unidad. Tambien vale una carpeta
@@ -198,10 +224,18 @@ pub fn validar_destino(destino: &str) -> Result<(), String> {
         let letra =
             d.len() == 2 && d.ends_with(':') && d.chars().next().unwrap().is_ascii_alphabetic();
         if !letra && !d.contains('\\') {
-            return Err("Usa una letra de unidad como I: o una ruta de carpeta completa.".into());
+            return Err(pick(
+                "Use a drive letter such as I: or a full folder path.",
+                "Usa una letra de unidad como I: o una ruta de carpeta completa.",
+            )
+            .into());
         }
     } else if !destino.starts_with('/') && !destino.starts_with('~') {
-        return Err("Usa una ruta completa, que empiece por /.".into());
+        return Err(pick(
+            "Use a full path, starting with /.",
+            "Usa una ruta completa, que empiece por /.",
+        )
+        .into());
     }
     Ok(())
 }
@@ -354,7 +388,10 @@ pub fn soltar_montaje(p: &Path) -> Result<(), String> {
             ("umount", &["-l"]),
         ]
     };
-    let mut ultimo = String::from("no se pudo ejecutar ninguna orden de desmontaje");
+    let mut ultimo = String::from(pick(
+        "no unmount command could be run",
+        "no se pudo ejecutar ninguna orden de desmontaje",
+    ));
     for (orden, args) in intentos {
         match std::process::Command::new(orden)
             .args(*args)
@@ -371,7 +408,11 @@ pub fn soltar_montaje(p: &Path) -> Result<(), String> {
 
 #[cfg(windows)]
 pub fn soltar_montaje(_p: &Path) -> Result<(), String> {
-    Err("en Windows la unidad se cierra con el proceso que la abrio".into())
+    Err(pick(
+        "on Windows the drive closes with the process that opened it",
+        "en Windows la unidad se cierra con el proceso que la abrio",
+    )
+    .into())
 }
 
 #[cfg(all(test, target_os = "linux"))]

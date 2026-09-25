@@ -18,6 +18,24 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.8.0] — 2026-09-25
+
+### Añadido
+
+- **Interfaz en inglés y español.** Arranca en inglés, o en español si el
+  sistema operativo está en español; se puede elegir en las preferencias
+  (Automático, English, Español) y cambia al momento, incluido el menú de la
+  bandeja y los avisos de montaje.
+- El instalador de Windows sigue el idioma del sistema, también en los avisos
+  de WinFsp.
+
+### Cambiado
+
+- README en inglés; la versión en español queda en `README.es.md`.
+- Conector iurefficient-connect 0.6.0: los mensajes de la cuenta de
+  Iurefficient también salen en el idioma elegido.
+- La herramienta de diagnóstico `iuredav-cli` sigue en español.
+
 ## [0.7.8] — 2026-09-25
 
 ### Añadido

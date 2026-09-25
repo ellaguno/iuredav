@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Capacidades, Preset, api } from "../api";
 import PanelCapacidades from "./PanelCapacidades";
+import { t, useIdioma } from "../i18n";
 
 interface Props {
   onGuardado: () => void;
@@ -34,6 +35,7 @@ function urlCredenciales(preset: Preset | undefined, escrito: string): string | 
 }
 
 export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
+  const idioma = useIdioma();
   const [presets, setPresets] = useState<Preset[]>([]);
   const [presetId, setPresetId] = useState("iurefficient");
   const [nombre, setNombre] = useState("Iurefficient");
@@ -61,8 +63,12 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
     api.puntoSugerido(id).then(setPunto).catch(() => {});
   }, [id]);
 
+  // Descripciones y pistas llegan redactadas desde Rust: se piden en cada idioma.
   useEffect(() => {
     api.listarPresets().then(setPresets).catch(() => {});
+  }, [idioma]);
+
+  useEffect(() => {
     // Si otra app de Iurefficient (IureTranscribe, IureEditor, IureOCR) ya inició
     // sesión en este equipo, se parte de esa instancia y correo: solo falta la contraseña.
     api.cuentaActiva().then((c) => {
@@ -96,10 +102,8 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
         setTotpToken(null);
         setTotpCode("");
         setConectado(
-          (r.nombre ? `Sesión iniciada como ${r.nombre}. ` : "Sesión iniciada. ") +
-            (r.reutilizada
-              ? "Se reutilizó la contraseña de aplicación guardada en el llavero."
-              : "Se creó una contraseña de aplicación a nombre de este equipo."),
+          (r.nombre ? t("form.sesionComo", { nombre: r.nombre }) : t("form.sesion")) +
+            (r.reutilizada ? t("form.reutilizada") : t("form.creada")),
         );
       }
     } catch (e) {
@@ -141,11 +145,11 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
   return (
     <>
       <div className="tarjeta">
-        <h2>Nueva conexión</h2>
+        <h2>{t("form.titulo")}</h2>
 
         <div style={{ marginTop: 16 }}>
           <div className="campo">
-            <label htmlFor="tipo">Tipo de servidor</label>
+            <label htmlFor="tipo">{t("form.tipo")}</label>
             <select
               id="tipo"
               value={presetId}
@@ -166,48 +170,48 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
           </div>
 
           <div className="campo">
-            <label htmlFor="nombre">Nombre</label>
+            <label htmlFor="nombre">{t("form.nombre")}</label>
             <input id="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            <div className="pista">Como quieres verla en la lista y en tu carpeta.</div>
+            <div className="pista">{t("form.nombre.pista")}</div>
           </div>
 
           <div className="campo">
-            <label htmlFor="url">Dirección del servidor</label>
+            <label htmlFor="url">{t("form.url")}</label>
             <input
               id="url" value={url} onChange={(e) => setUrl(e.target.value)}
               placeholder={
                 presetId === "iurefficient"
-                  ? "tu-instancia.iurefficient.com"
-                  : "https://nube.ejemplo.com/remote.php/dav/files/tu-usuario/"
+                  ? t("form.url.ejemploIurefficient")
+                  : t("form.url.ejemploGenerico")
               }
               spellCheck={false} autoCapitalize="off"
             />
             {presetId === "iurefficient" && (
               <div className="pista">
-                Basta el dominio: se completa con <code>/webdav/</code>.
+                {t("form.url.pistaAntes")}<code>/webdav/</code>{t("form.url.pistaDespues")}
               </div>
             )}
           </div>
 
           <div className="campo">
-            <label htmlFor="usuario">Tu correo</label>
+            <label htmlFor="usuario">{t("form.correo")}</label>
             <input
               id="usuario" type="email" value={usuario} onChange={(e) => setUsuario(e.target.value)}
-              placeholder="nombre@despacho.com" spellCheck={false} autoCapitalize="off"
+              placeholder={t("form.correo.ejemplo")} spellCheck={false} autoCapitalize="off"
             />
           </div>
 
           {presetId === "iurefficient" && (
             <div className="campo">
-              <label>Acceso</label>
+              <label>{t("form.acceso")}</label>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
                   <input type="radio" checked={modo === "cuenta"} onChange={() => setModo("cuenta")} />
-                  Con mi cuenta de Iurefficient (recomendado)
+                  {t("form.acceso.cuenta")}
                 </label>
                 <label style={{ display: "flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
                   <input type="radio" checked={modo === "manual"} onChange={() => setModo("manual")} />
-                  Ya tengo una contraseña de aplicación
+                  {t("form.acceso.manual")}
                 </label>
               </div>
             </div>
@@ -215,24 +219,22 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
 
           {conCuenta ? (
             <div className="campo">
-              <label htmlFor="passCuenta">{totpToken ? "Código de verificación" : "Contraseña de Iurefficient"}</label>
+              <label htmlFor="passCuenta">{totpToken ? t("form.codigo") : t("form.passCuenta")}</label>
               {totpToken ? (
                 <input
                   id="passCuenta" value={totpCode} inputMode="numeric" autoComplete="one-time-code"
-                  onChange={(e) => setTotpCode(e.target.value)} placeholder="6 dígitos"
+                  onChange={(e) => setTotpCode(e.target.value)} placeholder={t("form.codigo.ejemplo")}
                   onKeyDown={(e) => e.key === "Enter" && void conectarCuenta()}
                 />
               ) : (
                 <input
                   id="passCuenta" type="password" value={passCuenta} autoComplete="current-password"
-                  onChange={(e) => setPassCuenta(e.target.value)} placeholder="La misma con la que entras a la web"
+                  onChange={(e) => setPassCuenta(e.target.value)} placeholder={t("form.passCuenta.ejemplo")}
                   onKeyDown={(e) => e.key === "Enter" && void conectarCuenta()}
                 />
               )}
               <div className="pista">
-                Tu contraseña no se guarda: IureDav inicia sesión, pide a la instancia una contraseña de
-                aplicación a nombre de este equipo y la guarda en el llavero del sistema, compartido con
-                IureTranscribe, IureEditor e IureOCR.
+                {t("form.passCuenta.pista")}
               </div>
               <button
                 className="btn"
@@ -240,13 +242,13 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
                 disabled={conectando || !url.trim() || !usuario.trim() || (totpToken ? totpCode.trim().length < 6 : !passCuenta)}
                 onClick={() => void conectarCuenta()}
               >
-                {conectando ? "Conectando…" : totpToken ? "Verificar" : "Conectar y obtener acceso"}
+                {conectando ? t("form.conectando") : totpToken ? t("form.verificar") : t("form.conectar")}
               </button>
               {conectado && <div className="pista" style={{ marginTop: 6 }}>✓ {conectado}</div>}
             </div>
           ) : (
             <div className="campo">
-              <label htmlFor="pass">Contraseña</label>
+              <label htmlFor="pass">{t("form.pass")}</label>
               <input
                 id="pass" type="password" value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -260,19 +262,18 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
                   style={{ marginTop: 6, paddingLeft: 0 }}
                   disabled={!credenciales}
                   title={
-                    credenciales ??
-                    "Escribe antes la dirección de tu instancia y el enlace apuntará a la tuya."
+                    credenciales ?? t("form.perfil.tituloSinUrl")
                   }
                   onClick={() => credenciales && void openUrl(credenciales)}
                 >
-                  Abrir mi perfil para generarla →
+                  {t("form.perfil.abrir")}
                 </button>
               )}
             </div>
           )}
 
           <div className="campo">
-            <label htmlFor="punto">Carpeta donde aparecerá</label>
+            <label htmlFor="punto">{t("form.punto")}</label>
             <input id="punto" value={punto} onChange={(e) => setPunto(e.target.value)} spellCheck={false} />
           </div>
         </div>
@@ -280,13 +281,13 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
         {error && <div className="error-caja">{error}</div>}
 
         <div className="acciones">
-          <button className="btn" onClick={onCancelar}>Cancelar</button>
+          <button className="btn" onClick={onCancelar}>{t("form.cancelar")}</button>
           <span className="crece" />
           <button className="btn" onClick={probar} disabled={!completo || probando}>
-            {probando ? "Comprobando…" : "Probar conexión"}
+            {probando ? t("form.comprobando") : t("form.probar")}
           </button>
           <button className="btn principal" onClick={guardar} disabled={!completo || guardando}>
-            {guardando ? "Guardando…" : "Guardar"}
+            {guardando ? t("form.guardando") : t("form.guardar")}
           </button>
         </div>
       </div>
@@ -294,11 +295,8 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
       {caps && (
         <>
           <div className="nota limite" style={{ marginBottom: 14 }}>
-            <strong>Conexión correcta</strong>
-            <p>
-              Se encontró: {caps.real.raiz.join(", ") || "(sin carpetas en la raíz)"}. Esto
-              es lo que el servidor sabe hacer de verdad:
-            </p>
+            <strong>{t("form.correcta")}</strong>
+            <p>{t("form.encontrado", { raiz: caps.real.raiz.join(", ") || t("form.sinCarpetas") })}</p>
           </div>
           <PanelCapacidades caps={caps} gestor={preset?.donde_gestionar ?? null} />
         </>

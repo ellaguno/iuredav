@@ -9,6 +9,7 @@
 //! Tener esto separado permite que la misma aplicacion sirva para un WebDAV
 //! cualquiera sin que el codigo se llene de casos particulares.
 
+use iurefficient_connect::lang::pick;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -42,17 +43,26 @@ impl Preset {
         Self {
             id: "iurefficient".into(),
             nombre: "Iurefficient".into(),
-            descripcion: "Tus casos y documentos de una instancia de Iurefficient.".into(),
+            descripcion: pick(
+                "Your cases and documents from an Iurefficient instance.",
+                "Tus casos y documentos de una instancia de Iurefficient.",
+            )
+            .into(),
             sufijo_url: Some("webdav/".into()),
             ruta_selftest: "General/.iuredav-selftest.txt".into(),
             carpeta_muestra: Some("General/".into()),
             nombre_volumen: "Iurefficient".into(),
             donde_gestionar: Some("Iurefficient".into()),
-            pista_password: "Una contraseña de aplicación: empieza por iurdav_ y no es la \
-                             contraseña con la que entras a Iurefficient. La generas —y la \
-                             revocas— desde tu perfil, en «Otros» → «Contraseñas de acceso \
-                             WebDAV» → «Generar»."
-                .into(),
+            pista_password: pick(
+                "An app password: it starts with iurdav_ and it isn't the password you use \
+                 to sign in to Iurefficient. You generate it —and revoke it— from your \
+                 profile, under «Otros» → «Contraseñas de acceso WebDAV» → «Generar».",
+                "Una contraseña de aplicación: empieza por iurdav_ y no es la \
+                 contraseña con la que entras a Iurefficient. La generas —y la \
+                 revocas— desde tu perfil, en «Otros» → «Contraseñas de acceso \
+                 WebDAV» → «Generar».",
+            )
+            .into(),
             ruta_credenciales: Some("dashboard/profile".into()),
         }
     }
@@ -62,18 +72,25 @@ impl Preset {
     pub fn generico() -> Self {
         Self {
             id: "generico".into(),
-            nombre: "Otro servidor WebDAV".into(),
-            descripcion: "Nextcloud, ownCloud, Synology, Seafile o cualquier WebDAV sobre HTTPS."
-                .into(),
+            nombre: pick("Other WebDAV server", "Otro servidor WebDAV").into(),
+            descripcion: pick(
+                "Nextcloud, ownCloud, Synology, Seafile or any WebDAV over HTTPS.",
+                "Nextcloud, ownCloud, Synology, Seafile o cualquier WebDAV sobre HTTPS.",
+            )
+            .into(),
             sufijo_url: None,
             ruta_selftest: ".iuredav-selftest.txt".into(),
             // Sin carpeta conocida: se busca en la raiz.
             carpeta_muestra: None,
             nombre_volumen: "WebDAV".into(),
             donde_gestionar: None,
-            pista_password: "Tu contraseña, o mejor una contraseña de aplicación si tu servidor \
-                             las ofrece. Se guarda en el llavero de tu sistema."
-                .into(),
+            pista_password: pick(
+                "Your password, or better an app password if your server offers them. \
+                 It's stored in your system keychain.",
+                "Tu contraseña, o mejor una contraseña de aplicación si tu servidor \
+                 las ofrece. Se guarda en el llavero de tu sistema.",
+            )
+            .into(),
             // Cada servidor tiene la suya en otro sitio, y no la sabemos.
             ruta_credenciales: None,
         }

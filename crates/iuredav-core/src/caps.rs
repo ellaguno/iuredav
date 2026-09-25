@@ -11,6 +11,8 @@
 //! no soportado.
 
 use chrono::{DateTime, Utc};
+use iurefficient_connect::lang::pick;
+use iurefficient_connect::tr;
 use serde::{Deserialize, Serialize};
 
 /// Resultado de probar un verbo WebDAV concreto.
@@ -40,10 +42,10 @@ impl Verdict {
 
     pub fn descripcion(&self) -> String {
         match self {
-            Verdict::Funciona => "funciona".into(),
-            Verdict::Rechazado { status } => format!("rechazado ({status})"),
-            Verdict::Roto { status } => format!("ROTO ({status})"),
-            Verdict::SinProbar => "sin probar".into(),
+            Verdict::Funciona => pick("works", "funciona").into(),
+            Verdict::Rechazado { status } => tr!("rejected ({status})", "rechazado ({status})"),
+            Verdict::Roto { status } => tr!("BROKEN ({status})", "ROTO ({status})"),
+            Verdict::SinProbar => pick("not tested", "sin probar").into(),
             Verdict::Error { detalle } => format!("error: {detalle}"),
         }
     }
@@ -214,7 +216,7 @@ impl ServerCapabilities {
     /// callar es mas honesto que adivinar. Eso lo resuelve la sonda de escritura.
     pub fn limitaciones(&self) -> Vec<Limitacion> {
         let mut filas = Vec::new();
-        let mut revisar = |verbo: &str, v: &Verdict, explicacion: &str| {
+        let mut revisar = |verbo: &str, v: &Verdict, explicacion: String| {
             let anunciado = self.anuncia(verbo);
             let sin_probar = matches!(v, Verdict::SinProbar);
 
@@ -233,30 +235,47 @@ impl ServerCapabilities {
                 verbo: verbo.to_string(),
                 real: match origen {
                     Origen::Comprobado => v.descripcion(),
-                    Origen::Declarado => "el servidor no lo ofrece".to_string(),
+                    Origen::Declarado => {
+                        pick("the server doesn't offer it", "el servidor no lo ofrece").to_string()
+                    }
                 },
                 anunciado,
                 origen,
-                explicacion: explicacion.to_string(),
+                explicacion,
             });
         };
         revisar(
             "DELETE",
             &self.real.borrar,
-            "Los documentos no se pueden eliminar desde la unidad. Hazlo desde Iurefficient.",
+            tr!(
+                "Documents can't be deleted from the drive. Do it in Iurefficient.",
+                "Los documentos no se pueden eliminar desde la unidad. Hazlo desde Iurefficient."
+            ),
         );
         revisar(
             "MKCOL",
             &self.real.mkcol,
-            "Las carpetas se crean desde Iurefficient, no desde la unidad.",
+            tr!(
+                "Folders are created in Iurefficient, not from the drive.",
+                "Las carpetas se crean desde Iurefficient, no desde la unidad."
+            ),
         );
         revisar(
             "MOVE",
             &self.real.mover,
-            "Este servidor no permite mover ni renombrar archivos.",
+            tr!(
+                "This server doesn't allow moving or renaming files.",
+                "Este servidor no permite mover ni renombrar archivos."
+            ),
         );
-        revisar("PROPPATCH", &self.real.proppatch_modtime,
-            "La fecha de modificación no se puede escribir, así que no sirve para detectar cambios.");
+        revisar(
+            "PROPPATCH",
+            &self.real.proppatch_modtime,
+            tr!(
+                "The modification date can't be written, so it can't be used to detect changes.",
+                "La fecha de modificación no se puede escribir, así que no sirve para detectar cambios."
+            ),
+        );
         filas
     }
 
@@ -276,14 +295,22 @@ impl ServerCapabilities {
     pub fn resumen(&self) -> String {
         let l = self.limitaciones();
         if l.is_empty() {
-            return "Esta unidad no tiene límites conocidos.".into();
+            return pick(
+                "This drive has no known limits.",
+                "Esta unidad no tiene límites conocidos.",
+            )
+            .into();
         }
         let mentidas = l.iter().filter(|x| x.anunciado).count();
         let n = l.len();
         if mentidas == 0 {
-            format!("{n} operación(es) que esta unidad no puede hacer.")
+            tr!(
+                "{n} operation(s) this drive can't perform.",
+                "{n} operación(es) que esta unidad no puede hacer."
+            )
         } else {
-            format!(
+            tr!(
+                "{n} operation(s) this drive can't perform, {mentidas} of them advertised by the server.",
                 "{n} operación(es) que esta unidad no puede hacer, {mentidas} de ellas anunciadas por el servidor."
             )
         }

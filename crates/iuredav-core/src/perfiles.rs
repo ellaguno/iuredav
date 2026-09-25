@@ -8,6 +8,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use iurefficient_connect::lang::pick;
+use iurefficient_connect::tr;
 use serde::{Deserialize, Serialize};
 
 use crate::caps::ServerCapabilities;
@@ -95,10 +97,16 @@ fn nombre_bonito(id: &str) -> String {
 }
 
 pub fn directorio_config() -> Result<PathBuf> {
-    let d = directories::ProjectDirs::from("com", "Iurefficient", "IureDav")
-        .context("no se pudo determinar el directorio de configuración")?;
+    let d =
+        directories::ProjectDirs::from("com", "Iurefficient", "IureDav").with_context(|| {
+            pick(
+                "couldn't determine the configuration folder",
+                "no se pudo determinar el directorio de configuración",
+            )
+        })?;
     let d = d.config_dir().to_path_buf();
-    fs::create_dir_all(&d).with_context(|| format!("no se pudo crear {}", d.display()))?;
+    fs::create_dir_all(&d)
+        .with_context(|| tr!("couldn't create {}", "no se pudo crear {}", d.display()))?;
     Ok(d)
 }
 
@@ -111,9 +119,10 @@ pub fn cargar() -> Result<Vec<Perfil>> {
     if !f.exists() {
         return Ok(Vec::new());
     }
-    let texto =
-        fs::read_to_string(&f).with_context(|| format!("no se pudo leer {}", f.display()))?;
-    serde_json::from_str(&texto).with_context(|| format!("{} esta corrupto", f.display()))
+    let texto = fs::read_to_string(&f)
+        .with_context(|| tr!("couldn't read {}", "no se pudo leer {}", f.display()))?;
+    serde_json::from_str(&texto)
+        .with_context(|| tr!("{} is corrupt", "{} esta corrupto", f.display()))
 }
 
 pub fn guardar(perfiles: &[Perfil]) -> Result<()> {
@@ -122,8 +131,14 @@ pub fn guardar(perfiles: &[Perfil]) -> Result<()> {
     // sigue intacto en vez de quedarse truncado.
     let tmp = f.with_extension("json.tmp");
     fs::write(&tmp, serde_json::to_string_pretty(perfiles)?)
-        .with_context(|| format!("no se pudo escribir {}", tmp.display()))?;
-    fs::rename(&tmp, &f).with_context(|| format!("no se pudo reemplazar {}", f.display()))?;
+        .with_context(|| tr!("couldn't write {}", "no se pudo escribir {}", tmp.display()))?;
+    fs::rename(&tmp, &f).with_context(|| {
+        tr!(
+            "couldn't replace {}",
+            "no se pudo reemplazar {}",
+            f.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -168,42 +183,54 @@ pub fn preparar_punto(p: &Path) -> Result<()> {
     // existe. El diagnostico equivocado, justo cuando mas desorienta.
     if plataforma::montaje_muerto(p) {
         plataforma::soltar_montaje_muerto(p).map_err(|e| {
-            anyhow::anyhow!(
+            anyhow::anyhow!(tr!(
+                "There's a previous mount left open at {} and it couldn't be released ({e}). \
+                 Close any programs or terminals that have that folder open and \
+                 try again.",
                 "En {} hay un montaje anterior sin cerrar y no se ha podido soltar ({e}). \
                  Cierra los programas o terminales que tengan abierta esa carpeta y \
                  vuelve a intentarlo.",
                 p.display()
-            )
+            ))
         })?;
         tracing::info!(punto = %p.display(), "soltado un montaje que quedó huérfano");
     }
 
     if !p.exists() {
-        fs::create_dir_all(p).with_context(|| format!("no se pudo crear {}", p.display()))?;
+        fs::create_dir_all(p)
+            .with_context(|| tr!("couldn't create {}", "no se pudo crear {}", p.display()))?;
         return Ok(());
     }
     if !p.is_dir() {
-        anyhow::bail!("{} existe y no es una carpeta", p.display());
+        anyhow::bail!(tr!(
+            "{} exists and isn't a folder",
+            "{} existe y no es una carpeta",
+            p.display()
+        ));
     }
     // Una unidad viva de otro programa (o de otra IureDav abierta que no es la
     // nuestra): decir «no esta vacia» apuntaria al sitio equivocado.
     if let Some((origen, tipo)) = plataforma::montaje_en(p) {
-        anyhow::bail!(
+        anyhow::bail!(tr!(
+            "There's already a drive mounted at {} ({origen}, {tipo}). If it belongs to another \
+             IureDav that is still open, quit it from its tray icon (\"Quit\") and try \
+             again; otherwise, unmount it or choose another folder",
             "En {} ya hay una unidad montada ({origen}, {tipo}). Si es de otra IureDav que \
              sigue abierta, ciérrala desde su icono de la bandeja («Salir») y vuelve a \
              intentarlo; si no, desmóntala o elige otra carpeta",
             p.display()
-        );
+        ));
     }
     let vacia = fs::read_dir(p)
-        .with_context(|| format!("no se pudo leer {}", p.display()))?
+        .with_context(|| tr!("couldn't read {}", "no se pudo leer {}", p.display()))?
         .next()
         .is_none();
     if !vacia {
-        anyhow::bail!(
+        anyhow::bail!(tr!(
+            "{} isn't empty. Mounting there would hide what it already contains; choose another folder",
             "{} no esta vacia. Montar ahi ocultaria lo que ya contiene; elige otra carpeta",
             p.display()
-        );
+        ));
     }
     Ok(())
 }
@@ -264,7 +291,11 @@ mod tests {
 
         fs::write(d.join("algo.txt"), b"x").unwrap();
         let e = preparar_punto(&d).expect_err("con contenido: no");
-        assert!(e.to_string().contains("no esta vacia"));
+        let e = e.to_string();
+        assert!(
+            e.contains("no esta vacia") || e.contains("isn't empty"),
+            "{e}"
+        );
 
         let _ = fs::remove_dir_all(&d);
     }

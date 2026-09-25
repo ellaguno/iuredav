@@ -14,6 +14,22 @@
 //! * [`ajustes`] guarda las preferencias que no son de ninguna conexion.
 //! * [`actualizaciones`] avisa de versiones nuevas, sin instalarlas.
 
+/// El idioma de los mensajes, el mismo que el del conector: la app lo fija al
+/// arrancar y al cambiar el ajuste, y la CLI con el del sistema.
+pub use iurefficient_connect::lang;
+
+/// Como `iurefficient_connect::tr!`, pero con el idioma explicito. Sirve donde
+/// el texto se prueba: el idioma global lo comparten todas las pruebas a la vez.
+#[macro_export]
+macro_rules! tr_en {
+    ($idioma:expr, $en:literal, $es:literal $(, $arg:expr)* $(,)?) => {
+        match $idioma {
+            $crate::lang::Lang::En => format!($en $(, $arg)*),
+            $crate::lang::Lang::Es => format!($es $(, $arg)*),
+        }
+    };
+}
+
 pub mod actualizaciones;
 pub mod ajustes;
 pub mod anclajes;

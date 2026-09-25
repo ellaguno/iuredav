@@ -7,35 +7,41 @@ import FormularioConexion from "./componentes/FormularioConexion";
 import Marca from "./componentes/Marca";
 import PanelCapacidades from "./componentes/PanelCapacidades";
 import AppsIurefficient from "./componentes/AppsIurefficient";
+import { Clave, fijarIdioma, t, tn, useIdioma } from "./i18n";
 
 /** Un verbo del protocolo no le dice nada a nadie: se nombra la accion. */
-const ACCION: Record<string, string> = {
-  DELETE: "eliminar documentos",
-  MKCOL: "crear carpetas",
-  MOVE: "mover o renombrar",
-  COPY: "copiar dentro de la unidad",
+const ACCION: Record<string, Clave> = {
+  DELETE: "accion.DELETE",
+  MKCOL: "accion.MKCOL",
+  MOVE: "accion.MOVE",
+  COPY: "accion.COPY",
   // PROPPATCH se omite a proposito: no es algo que nadie intente hacer, asi que en
   // el titular seria ruido. Sigue apareciendo en la tabla del detalle.
 };
 
 /** "eliminar documentos, crear carpetas ni mover" en vez de "delete, mkcol, move". */
 function enumerar(verbos: string[]): string {
-  const partes = verbos.map((v) => ACCION[v.toUpperCase()]).filter(Boolean);
+  const partes = verbos
+    .map((v) => ACCION[v.toUpperCase()])
+    .filter(Boolean)
+    .map((k) => t(k));
   if (partes.length === 0) return "";
   if (partes.length === 1) return partes[0];
-  return `${partes.slice(0, -1).join(", ")} ni ${partes[partes.length - 1]}`;
+  return `${partes.slice(0, -1).join(", ")}${t("lista.ni")}${partes[partes.length - 1]}`;
 }
 
 type Vista = { pantalla: "lista" } | { pantalla: "nueva" } | { pantalla: "detalle"; id: string };
 
 export default function App() {
+  const idioma = useIdioma();
+  const [preferido, setPreferido] = useState("auto");
   const [vista, setVista] = useState<Vista>({ pantalla: "lista" });
   const [conexiones, setConexiones] = useState<Conexion[] | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [falta, setFalta] = useState<Requisito | null>(null);
-  const [destino, setDestino] = useState("Carpeta");
+  const [destino, setDestino] = useState("");
   const [presets, setPresets] = useState<Preset[]>([]);
   const [auto, setAuto] = useState(false);
   const [oculto, setOculto] = useState(true);
@@ -65,11 +71,16 @@ export default function App() {
     comprobar();
     window.addEventListener("focus", comprobar);
     return () => window.removeEventListener("focus", comprobar);
-  }, []);
+  }, [idioma]);
 
+  // Lo que llega redactado desde Rust se vuelve a pedir al cambiar de idioma.
   useEffect(() => {
     api.nombreDestino().then(setDestino).catch(() => {});
     api.listarPresets().then(setPresets).catch(() => {});
+  }, [idioma]);
+
+  useEffect(() => {
+    api.idiomaPreferido().then(setPreferido).catch(() => {});
     api.autoarranque().then(setAuto).catch(() => {});
     api.arranqueOculto().then(setOculto).catch(() => {});
     api.avisarActualizaciones().then(setAvisar).catch(() => {});
@@ -96,7 +107,7 @@ export default function App() {
         const perfil = u.searchParams.get("perfil");
         const lista = await api.listar().catch(() => null);
         const c = lista?.find((x) => x.id === perfil) ?? (lista?.length === 1 ? lista[0] : undefined);
-        if (!c) { setError(`No hay ninguna conexión «${perfil ?? ""}» que montar.`); continue; }
+        if (!c) { setError(t("enlace.noHay", { perfil: perfil ?? "" })); continue; }
         if (!c.montado) {
           setOcupado(c.id);
           try { await api.montar(c.id, c.escritura); } catch (e) { setError(String(e)); } finally { setOcupado(null); }
@@ -139,7 +150,7 @@ export default function App() {
     const elegida = await elegirCarpeta({
       directory: true,
       defaultPath: c.punto_montaje,
-      title: "Elige una carpeta para tenerla sin conexión",
+      title: t("anclajes.elegir"),
     });
     if (typeof elegida !== "string") return;
     try {
@@ -153,17 +164,13 @@ export default function App() {
   /** Dónde sí puede el usuario hacer lo que la unidad le niega. */
   function donde(c: Conexion): string {
     const gestor = presets.find((p) => p.id === c.preset)?.donde_gestionar;
-    return gestor ? `desde ${gestor}` : "desde la aplicación web de tu servidor";
+    return gestor ? t("donde.gestor", { gestor }) : t("donde.generico");
   }
 
   /** Lo que hay que decir antes de la fase de escritura: deja un archivo. */
   function avisoEscritura(c: Conexion): string {
     const ruta = presets.find((p) => p.id === c.preset)?.ruta_selftest ?? ".iuredav-selftest.txt";
-    return (
-      `Se creará un archivo de diagnóstico en el servidor (${ruta}). Si el servidor no permite ` +
-      "eliminar —el caso de Iurefficient— ese archivo se queda ahí. Repetir la comprobación no " +
-      "acumula archivos, solo versiones del mismo."
-    );
+    return t("avisoEscritura", { ruta });
   }
 
   /**
@@ -213,19 +220,14 @@ export default function App() {
       // Así que se ofrece medirlo, que es el único camino que lo desbloquea.
       if (caps?.real.put_crear.estado !== "funciona") {
         const quiere = window.confirm(
-          "Para poder editar hay que comprobar antes que este servidor acepta subidas.\n\n" +
-            avisoEscritura(c) +
-            "\n\n¿Comprobarlo ahora?",
+          `${t("editar.hayQueComprobar")}\n\n${avisoEscritura(c)}\n\n${t("editar.comprobarloAhora")}`,
         );
         if (!quiere) return;
 
         const medido = await medir(c, true);
         if (!medido) return;
         if (medido.real.put_crear.estado !== "funciona") {
-          setError(
-            `Este servidor no acepta subidas (${describir(medido.real.put_crear)}), así que la ` +
-              "carpeta seguirá siendo de solo lectura.",
-          );
+          setError(t("editar.noAceptaSubidas", { estado: describir(medido.real.put_crear) }));
           return;
         }
         caps = medido;
@@ -234,11 +236,9 @@ export default function App() {
       const versiona = caps.real.put_sobrescribir === "crea_version";
       const limites = enumerar(c.limites);
       const aviso =
-        (versiona
-          ? "En este servidor, cada vez que guardes un documento se creará una versión nueva. "
-          : "") +
-        (limites ? `Y desde la carpeta seguirás sin poder ${limites}. ` : "") +
-        "\n\n¿Activar el modo edición?";
+        (versiona ? t("editar.versiona") : "") +
+        (limites ? t("editar.seguirasSinPoder", { limites }) : "") +
+        `\n\n${t("editar.activar")}`;
       if (!window.confirm(aviso)) return;
     }
     setOcupado(c.id);
@@ -254,7 +254,7 @@ export default function App() {
 
   async function olvidar(c: Conexion) {
     if (c.montado) {
-      setError("Desmonta la conexión antes de eliminarla.");
+      setError(t("olvidar.antesDesmonta"));
       return;
     }
     setOcupado(c.id);
@@ -279,34 +279,34 @@ export default function App() {
         <div className="crece">
           <h1>IureDav</h1>
           <div style={{ fontSize: 12, color: "var(--tenue)" }}>
-            Tus documentos, como una carpeta más de tu equipo
+            {t("cabecera.lema")}
           </div>
         </div>
         {vista.pantalla === "lista" && (
           <button className="btn principal" onClick={() => setVista({ pantalla: "nueva" })}>
-            Añadir conexión
+            {t("cabecera.anadir")}
           </button>
         )}
         {vista.pantalla !== "lista" && (
           <button className="btn" onClick={() => setVista({ pantalla: "lista" })}>
-            Volver
+            {t("cabecera.volver")}
           </button>
         )}
       </header>
 
       {falta && (
         <div className="tarjeta">
-          <h2>Falta {falta.que_falta}</h2>
+          <h2>{t("falta.titulo", { que: falta.que_falta })}</h2>
           <p style={{ color: "var(--tenue)", marginTop: 4 }}>{falta.por_que}</p>
           <div className="nota aviso">
-            <strong>Qué hacer</strong>
+            <strong>{t("falta.queHacer")}</strong>
             <p>{falta.como_instalar}</p>
           </div>
           {falta.url && (
             <div className="acciones">
               <span className="crece" />
               <button className="btn principal" onClick={() => void openUrl(falta.url!)}>
-                Descargar {falta.que_falta}
+                {t("falta.descargar", { que: falta.que_falta })}
               </button>
             </div>
           )}
@@ -317,18 +317,18 @@ export default function App() {
 
       {nueva && !nuevaVista && (
         <div className="nota aviso">
-          <strong>Hay una versión nueva de IureDav: {nueva.version}</strong>
+          <strong>{t("nueva.titulo", { version: nueva.version })}</strong>
           <p>
             {actualizando
               ? actualizando
-              : "Puede instalarse desde aquí (AppImage, Windows y macOS): se desmontan las unidades, se instala y IureDav se reinicia. Si se instaló con .deb o .rpm, descarga el paquete nuevo."}
+              : t("nueva.texto")}
           </p>
           <div className="acciones" style={{ marginTop: 8 }}>
             <button
               className="btn principal"
               disabled={!!actualizando}
               onClick={() => {
-                setActualizando("Comprobando…");
+                setActualizando(t("nueva.comprobando"));
                 import("./actualizador")
                   .then((m) =>
                     m.instalarActualizacion(
@@ -344,19 +344,17 @@ export default function App() {
                   })
                   .catch((e) => {
                     setActualizando(null);
-                    setError(
-                      `No se pudo actualizar desde la app (${String(e)}). Descarga el instalador desde la página de la release.`,
-                    );
+                    setError(t("nueva.error", { error: String(e) }));
                   });
               }}
             >
-              Actualizar ahora
+              {t("nueva.actualizar")}
             </button>
             <button className="btn plano" onClick={() => void openUrl(nueva.url)}>
-              Ver la descarga
+              {t("nueva.verDescarga")}
             </button>
             <button className="btn plano" disabled={!!actualizando} onClick={() => setNuevaVista(true)}>
-              Ahora no
+              {t("nueva.ahoraNo")}
             </button>
           </div>
         </div>
@@ -388,21 +386,21 @@ export default function App() {
               <button
                 className="btn"
                 disabled={ocupado === detalle.id}
-                title="La medición se guarda y no caduca: si el servidor cambia, hay que volver a comprobarlo."
+                title={t("detalle.tituloMedir")}
                 onClick={() => void medir(detalle, false)}
               >
-                {ocupado === detalle.id ? "Comprobando…" : "Volver a comprobar"}
+                {ocupado === detalle.id ? t("detalle.comprobando") : t("detalle.volverAComprobar")}
               </button>
               <button
                 className="btn"
                 disabled={ocupado === detalle.id}
                 onClick={() => {
-                  if (window.confirm(`${avisoEscritura(detalle)}\n\n¿Comprobar ahora?`)) {
+                  if (window.confirm(`${avisoEscritura(detalle)}\n\n${t("detalle.comprobarAhora")}`)) {
                     void medir(detalle, true);
                   }
                 }}
               >
-                Comprobar también si acepta subidas
+                {t("detalle.comprobarSubidas")}
               </button>
             </div>
           </div>
@@ -414,8 +412,7 @@ export default function App() {
           ) : (
             <div className="tarjeta">
               <p style={{ color: "var(--tenue)", margin: 0 }}>
-                Esta conexión todavía no se ha comprobado. Se hará sola la primera vez
-                que la montes.
+                {t("detalle.sinComprobar")}
               </p>
             </div>
           )}
@@ -424,27 +421,53 @@ export default function App() {
 
       {vista.pantalla === "lista" && (
         <>
-          {conexiones === null && <div className="cargando">Cargando…</div>}
+          {conexiones === null && <div className="cargando">{t("lista.cargando")}</div>}
 
           {conexiones?.length === 0 && (
             <div className="vacio">
-              <h2>Todavía no hay ninguna conexión</h2>
-              <p>
-                Añade tu instancia de Iurefficient y aparecerá como una carpeta de tu
-                equipo, con tus casos dentro.
-              </p>
+              <h2>{t("vacio.titulo")}</h2>
+              <p>{t("vacio.texto")}</p>
               <button
                 className="btn principal grande"
                 style={{ marginTop: 14 }}
                 onClick={() => setVista({ pantalla: "nueva" })}
               >
-                Añadir mi primera conexión
+                {t("vacio.boton")}
               </button>
             </div>
           )}
 
-          {conexiones !== null && conexiones.length > 0 && (
+          {conexiones !== null && (
             <div className="tarjeta preferencia">
+              {/* El idioma se puede cambiar aunque no haya conexiones: es lo primero
+                  que busca quien no entiende la ventana. */}
+              <div className="idioma">
+                <span>
+                  <strong>{t("pref.idioma")}</strong>
+                  <em>{t("pref.idioma.detalle")}</em>
+                </span>
+                <select
+                  aria-label={t("pref.idioma")}
+                  value={preferido}
+                  onChange={async (e) => {
+                    const v = e.target.value;
+                    const antes = preferido;
+                    setPreferido(v);
+                    try {
+                      fijarIdioma(await api.fijarIdioma(v));
+                    } catch (err) {
+                      setPreferido(antes);
+                      setError(String(err));
+                    }
+                  }}
+                >
+                  <option value="auto">{t("pref.idioma.auto")}</option>
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                </select>
+              </div>
+              {conexiones.length > 0 && (
+              <>
               <label>
                 <input
                   type="checkbox"
@@ -461,11 +484,8 @@ export default function App() {
                   }}
                 />
                 <span>
-                  <strong>Arrancar al iniciar sesión</strong>
-                  <em>
-                    IureDav se queda en la bandeja del sistema. Cerrar la ventana no lo
-                    detiene ni desmonta nada; para eso está «Salir» en la bandeja.
-                  </em>
+                  <strong>{t("pref.autoarranque")}</strong>
+                  <em>{t("pref.autoarranque.detalle")}</em>
                 </span>
               </label>
               {/* Solo tiene sentido si arranca con la sesión: a mano, la ventana se
@@ -487,11 +507,8 @@ export default function App() {
                   }}
                 />
                 <span>
-                  <strong>Arrancar minimizado</strong>
-                  <em>
-                    Al iniciar sesión no abre la ventana: solo aparece el icono en la
-                    bandeja. Si lo abres tú, la ventana se muestra siempre.
-                  </em>
+                  <strong>{t("pref.minimizado")}</strong>
+                  <em>{t("pref.minimizado.detalle")}</em>
                 </span>
               </label>
               <label className="anidada" style={{ paddingLeft: 0, marginTop: 14 }}>
@@ -511,13 +528,12 @@ export default function App() {
                   }}
                 />
                 <span>
-                  <strong>Avisar de versiones nuevas</strong>
-                  <em>
-                    Una vez al día consulta en GitHub si hay una versión más nueva y lo
-                    dice aquí y en la bandeja. No descarga ni instala nada.
-                  </em>
+                  <strong>{t("pref.avisar")}</strong>
+                  <em>{t("pref.avisar.detalle")}</em>
                 </span>
               </label>
+              </>
+              )}
             </div>
           )}
 
@@ -529,9 +545,9 @@ export default function App() {
                     <h2>{c.nombre}</h2>
                     <span className={`pastilla ${c.montado ? "viva" : ""}`}>
                       <span className="punto" />
-                      {c.montado ? "Montado" : "Desmontado"}
+                      {c.montado ? t("conexion.montado") : t("conexion.desmontado")}
                     </span>
-                    <span className="pastilla">{c.escritura ? "Edición" : "Solo lectura"}</span>
+                    <span className="pastilla">{c.escritura ? t("conexion.edicion") : t("conexion.soloLectura")}</span>
                   </div>
                   <div className="ruta">
                     {destino}: {c.punto_montaje}
@@ -542,7 +558,7 @@ export default function App() {
                   <>
                     <button
                       className="btn"
-                      title="Vuelve a leer el listado del servidor. Los cambios hechos desde Iurefficient tardan unos minutos en aparecer solos."
+                      title={t("conexion.tituloActualizar")}
                       onClick={async () => {
                         setOcupado(c.id);
                         try {
@@ -554,13 +570,13 @@ export default function App() {
                         }
                       }}
                     >
-                      Actualizar
+                      {t("conexion.actualizar")}
                     </button>
                     <button
                       className="btn"
                       onClick={() => api.abrirCarpeta(c.id).catch((e) => setError(String(e)))}
                     >
-                      Abrir carpeta
+                      {t("conexion.abrirCarpeta")}
                     </button>
                   </>
                 )}
@@ -569,28 +585,22 @@ export default function App() {
                   onClick={() => void alternar(c)}
                   disabled={ocupado === c.id}
                 >
-                  {ocupado === c.id ? "…" : c.montado ? "Desmontar" : "Montar"}
+                  {ocupado === c.id ? "…" : c.montado ? t("conexion.desmontar") : t("conexion.montar")}
                 </button>
               </div>
 
               {enumerar(c.limites) && (
                 <div className="nota limite">
-                  <strong>Esta unidad tiene límites</strong>
-                  <p>
-                    No permite {enumerar(c.limites)}. Esas operaciones se hacen {donde(c)};
-                    desde la carpeta de tu equipo no funcionan.
-                  </p>
+                  <strong>{t("conexion.limites.titulo")}</strong>
+                  <p>{t("conexion.limites.texto", { lista: enumerar(c.limites), donde: donde(c) })}</p>
                 </div>
               )}
 
               {(c.anclados.length > 0 || c.montado) && (
                 <div className="anclajes">
-                  <div className="titulo">Disponible sin conexión</div>
+                  <div className="titulo">{t("anclajes.titulo")}</div>
                   {c.anclados.length === 0 && (
-                    <p className="pista">
-                      Marca las carpetas que quieras poder abrir sin internet. Se
-                      descargan y se guardan en la caché de tu equipo.
-                    </p>
+                    <p className="pista">{t("anclajes.pista")}</p>
                   )}
                   {c.anclados.map((r) => {
                     const a = anclando[`${c.id}:${r}`];
@@ -599,23 +609,24 @@ export default function App() {
                         <span className="ruta">{r}</span>
                         <span className="estado">
                           {a && !a.terminado
-                            ? `descargando… ${a.archivos} archivos`
+                            ? tn("anclajes.descargando", a.archivos)
                             : a?.terminado
-                              ? `${a.archivos} archivos${a.fallidos ? `, ${a.fallidos} sin descargar` : ""}`
-                              : "lista"}
+                              ? tn("anclajes.archivos", a.archivos) +
+                                (a.fallidos ? t("anclajes.sinDescargar", { n: a.fallidos }) : "")
+                              : t("anclajes.lista")}
                         </span>
                         <button className="btn plano" onClick={async () => {
                           await api.desanclar(c.id, r);
                           await recargar();
                         }}>
-                          Quitar
+                          {t("anclajes.quitar")}
                         </button>
                       </div>
                     );
                   })}
                   {c.montado && (
                     <button className="btn" style={{ marginTop: 8 }} onClick={() => void anclar(c)}>
-                      Añadir carpeta
+                      {t("anclajes.anadir")}
                     </button>
                   )}
                 </div>
@@ -623,14 +634,14 @@ export default function App() {
 
               <div className="acciones" style={{ marginTop: 12 }}>
                 <button className="btn plano" onClick={() => setVista({ pantalla: "detalle", id: c.id })}>
-                  Ver qué sabe hacer este servidor
+                  {t("conexion.verCapacidades")}
                 </button>
                 <button className="btn plano" onClick={() => void cambiarModo(c)} disabled={c.montado}>
-                  {c.escritura ? "Pasar a solo lectura" : "Permitir edición"}
+                  {c.escritura ? t("conexion.pasarASoloLectura") : t("conexion.permitirEdicion")}
                 </button>
                 <span className="crece" />
                 <button className="btn plano peligro" onClick={() => void olvidar(c)}>
-                  Eliminar
+                  {t("conexion.eliminar")}
                 </button>
               </div>
             </div>
@@ -642,19 +653,18 @@ export default function App() {
 
       <footer className="pie">
         <p className="lema">
-          <strong>Iurefficient</strong> entiende cada proyecto desde su expediente, con una IA
-          que lo lee y lo cita.
+          <strong>Iurefficient</strong> {t("pie.lema")}
         </p>
         <nav className="enlaces">
           <button onClick={() => void openUrl("https://iurefficient.com")}>iurefficient.com</button>
-          <button onClick={() => void openUrl("https://demo.iurefficient.com")}>Probar la demo</button>
+          <button onClick={() => void openUrl("https://demo.iurefficient.com")}>{t("pie.demo")}</button>
         </nav>
         {acerca && (
           <p className="version">
             IureDav {acerca.version}
-            {nueva && <> · hay una versión nueva: {nueva.version}</>}
+            {nueva && t("pie.nueva", { version: nueva.version })}
             {" · "}
-            <button onClick={() => void openUrl(acerca.url_releases)}>Todas las versiones en GitHub</button>
+            <button onClick={() => void openUrl(acerca.url_releases)}>{t("pie.todas")}</button>
           </p>
         )}
       </footer>

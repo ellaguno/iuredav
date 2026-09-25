@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AppId, EstadoApp, api } from "../api";
+import { t, useIdioma } from "../i18n";
 
 const REPOS: Record<AppId, string> = {
   transcribe: "https://github.com/ellaguno/iuretranscribe",
@@ -13,39 +14,41 @@ const REPOS: Record<AppId, string> = {
 export default function AppsIurefficient({ version }: { version?: string }) {
   const [apps, setApps] = useState<EstadoApp[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Las descripciones las redacta el conector en el idioma actual: se piden de nuevo al cambiarlo.
+  const idioma = useIdioma();
 
   useEffect(() => {
     api.apps(false).then(setApps).catch(() => {});
     api.apps(true).then(setApps).catch(() => {});
-  }, []);
+  }, [idioma]);
 
   if (!apps) return null;
   return (
     <div className="tarjeta apps">
-      <h3>Apps de Iurefficient</h3>
-      <p className="detalle">
-        IureDav monta tus documentos como una unidad; IureTranscribe transcribe reuniones y
-        audios; IureEditor edita los documentos y sube versiones; IureOCR reconoce el texto de documentos
-        escaneados e imágenes con Tesseract y trae herramientas PDF. Comparten la cuenta y el llavero.
-      </p>
+      <h3>{t("apps.titulo")}</h3>
+      <p className="detalle">{t("apps.texto")}</p>
       {apps.map((a) => (
         <div className="fila" key={a.id}>
           <div className="crece">
             <strong>{a.name}</strong>{" "}
             <span className="detalle">
-              {a.id === "dav" ? `esta app${version ? ` ${version}` : ""}` : a.installed ? "instalada" : "no instalada"}
-              {a.latestVersion ? ` · última ${a.latestVersion}` : ""}
+              {a.id === "dav"
+                ? `${t("apps.estaApp")}${version ? ` ${version}` : ""}`
+                : a.installed
+                  ? t("apps.instalada")
+                  : t("apps.noInstalada")}
+              {a.latestVersion ? t("apps.ultima", { version: a.latestVersion }) : ""}
             </span>
             <div className="detalle">{a.description}</div>
           </div>
           {a.id !== "dav" &&
             (a.installed ? (
               <button className="btn" title={a.path ?? ""} onClick={() => api.lanzarApp(a.id).catch((e) => setError(String(e)))}>
-                Abrir
+                {t("apps.abrir")}
               </button>
             ) : (
               <button className="btn principal" onClick={() => void openUrl(a.downloadUrl)}>
-                Descargar
+                {t("apps.descargar")}
               </button>
             ))}
           <button className="btn plano" onClick={() => void openUrl(REPOS[a.id])}>

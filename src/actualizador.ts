@@ -3,6 +3,7 @@
 // enlaza la descarga. Antes de instalar se desmontan las unidades para que rclone
 // no se quede colgado del binario viejo; siguen marcadas para volver al arrancar.
 import { api } from "./api";
+import { t } from "./i18n";
 
 export type ResultadoActualizacion = "instalada" | "no-disponible" | "cancelada";
 
@@ -21,7 +22,7 @@ export async function instalarActualizacion(
   } catch {
     /* si no se pudo desmontar, la instalación sigue: el sidecar se relanza */
   }
-  avisar("Descargando e instalando…");
+  avisar(t("nueva.instalando"));
   await update.downloadAndInstall();
   const { relaunch } = await import("@tauri-apps/plugin-process");
   await relaunch();

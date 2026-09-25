@@ -16,6 +16,8 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
+use iurefficient_connect::lang::pick;
+use iurefficient_connect::tr;
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
@@ -47,7 +49,12 @@ impl Rclone {
     ///
     /// `binario` es la ruta al rclone empaquetado; en desarrollo vale el del sistema.
     pub async fn arrancar(binario: &str) -> Result<(Self, mpsc::Receiver<MensajeAmistoso>)> {
-        let puerto = puerto_libre().context("no hay puertos libres en localhost")?;
+        let puerto = puerto_libre().with_context(|| {
+            pick(
+                "no free ports on localhost",
+                "no hay puertos libres en localhost",
+            )
+        })?;
         let usuario = token_aleatorio();
         let password = token_aleatorio();
 
@@ -75,9 +82,12 @@ impl Rclone {
         // unidad esta montada.
         #[cfg(windows)]
         orden.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
-        let mut proceso = orden
-            .spawn()
-            .with_context(|| format!("no se pudo ejecutar rclone en {binario}"))?;
+        let mut proceso = orden.spawn().with_context(|| {
+            tr!(
+                "couldn't run rclone at {binario}",
+                "no se pudo ejecutar rclone en {binario}"
+            )
+        })?;
 
         // El log de rclone sale por stderr. Lo leemos linea a linea y lo pasamos por
         // el traductor: de ahi salen las notificaciones que ve el usuario.
@@ -126,7 +136,10 @@ impl Rclone {
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
-        bail!("el sidecar rclone no respondio en 5 segundos")
+        bail!(pick(
+            "the rclone sidecar didn't respond within 5 seconds",
+            "el sidecar rclone no respondio en 5 segundos"
+        ))
     }
 
     /// Llama a un metodo de la API remota de rclone.
@@ -138,7 +151,7 @@ impl Rclone {
             .json(&params)
             .send()
             .await
-            .with_context(|| format!("fallo la llamada a {metodo}"))?;
+            .with_context(|| tr!("the call to {metodo} failed", "fallo la llamada a {metodo}"))?;
 
         let status = r.status();
         let cuerpo: Value = r.json().await.unwrap_or(Value::Null);
@@ -147,9 +160,12 @@ impl Rclone {
             let detalle = cuerpo
                 .get("error")
                 .and_then(|e| e.as_str())
-                .unwrap_or("sin detalle")
+                .unwrap_or(pick("no details", "sin detalle"))
                 .to_string();
-            return Err(anyhow!("{metodo} devolvio {status}: {detalle}"));
+            return Err(anyhow!(tr!(
+                "{metodo} returned {status}: {detalle}",
+                "{metodo} devolvio {status}: {detalle}"
+            )));
         }
         Ok(cuerpo)
     }
@@ -291,15 +307,17 @@ fn elegir_tipo(disponibles: &[String]) -> Result<String> {
             return Ok((*preferido).to_string());
         }
     }
-    bail!(
-        "este rclone no ofrece ningun mecanismo de montaje utilizable (tiene: {}). \
-         En Windows suele significar que falta WinFsp; en macOS, que el binario esta incompleto",
-        if disponibles.is_empty() {
-            "ninguno".to_string()
-        } else {
-            disponibles.join(", ")
-        }
-    )
+    let tiene = if disponibles.is_empty() {
+        pick("none", "ninguno").to_string()
+    } else {
+        disponibles.join(", ")
+    };
+    bail!(tr!(
+        "this rclone offers no usable mount mechanism (it has: {tiene}). \
+         On Windows this usually means WinFsp is missing; on macOS, that the binary is incomplete",
+        "este rclone no ofrece ningun mecanismo de montaje utilizable (tiene: {tiene}). \
+         En Windows suele significar que falta WinFsp; en macOS, que el binario esta incompleto"
+    ))
 }
 
 fn puerto_libre() -> Option<u16> {

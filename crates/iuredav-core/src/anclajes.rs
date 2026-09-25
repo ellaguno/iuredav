@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
+use iurefficient_connect::tr;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
@@ -43,15 +44,22 @@ pub struct Resumen {
 pub fn resolver(punto: &Path, relativa: &str) -> Result<PathBuf> {
     let destino = punto.join(relativa.trim_start_matches(['/', '\\']));
 
-    let punto_real = punto
-        .canonicalize()
-        .with_context(|| format!("no se pudo resolver {}", punto.display()))?;
+    let punto_real = punto.canonicalize().with_context(|| {
+        tr!(
+            "couldn't resolve {}",
+            "no se pudo resolver {}",
+            punto.display()
+        )
+    })?;
     let destino_real = destino
         .canonicalize()
-        .with_context(|| format!("no existe {}", destino.display()))?;
+        .with_context(|| tr!("{} doesn't exist", "no existe {}", destino.display()))?;
 
     if !destino_real.starts_with(&punto_real) {
-        bail!("{relativa} queda fuera de la unidad montada");
+        bail!(tr!(
+            "{relativa} is outside the mounted drive",
+            "{relativa} queda fuera de la unidad montada"
+        ));
     }
     Ok(destino_real)
 }
@@ -165,7 +173,10 @@ mod tests {
 
         assert!(resolver(&punto, "dentro").is_ok());
         let e = resolver(&punto, "../..").unwrap_err().to_string();
-        assert!(e.contains("fuera de la unidad"), "{e}");
+        assert!(
+            e.contains("fuera de la unidad") || e.contains("outside the mounted drive"),
+            "{e}"
+        );
 
         let _ = std::fs::remove_dir_all(&punto);
     }

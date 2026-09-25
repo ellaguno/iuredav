@@ -2098,7 +2098,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "iuredav-app"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "gtk",
@@ -2122,7 +2122,7 @@ dependencies = [
 
 [[package]]
 name = "iuredav-cli"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2135,7 +2135,7 @@ dependencies = [
 
 [[package]]
 name = "iuredav-core"
-version = "0.7.8"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2154,8 +2154,8 @@ dependencies = [
 
 [[package]]
 name = "iurefficient-connect"
-version = "0.5.2"
-source = "git+https://github.com/ellaguno/iurefficient-connect?tag=v0.5.2#020bbb337d272012e7f8f95cca47c2dad068b76e"
+version = "0.6.0"
+source = "git+https://github.com/ellaguno/iurefficient-connect?tag=v0.6.0#2cc566335c025c5b338cb578bb4c5494db125f21"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2168,6 +2168,7 @@ dependencies = [
  "roxmltree",
  "serde",
  "serde_json",
+ "sys-locale",
  "thiserror 2.0.20",
  "tokio",
  "url",
@@ -4275,6 +4276,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eab9a99a024a169fe8a903cf9d4a3b3601109bcc13bd9e3c6fff259138626c4"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

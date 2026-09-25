@@ -1,5 +1,6 @@
 /** Puente tipado con el nucleo en Rust. Los tipos reflejan `iuredav-core`. */
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "./i18n";
 
 export type Verdict =
   | { estado: "funciona" }
@@ -204,6 +205,11 @@ export const api = {
   avisarActualizaciones: () => invoke<boolean>("avisar_actualizaciones"),
   fijarAvisarActualizaciones: (activo: boolean) =>
     invoke<void>("fijar_avisar_actualizaciones", { activo }),
+
+  /** Ajuste de idioma tal cual: "auto", "en" o "es". */
+  idiomaPreferido: () => invoke<string>("idioma_preferido"),
+  /** Guarda el idioma y devuelve el ya resuelto ("en" o "es"). */
+  fijarIdioma: (idioma: string) => invoke<string>("fijar_idioma", { idioma }),
 };
 
 /** Un verbo solo cuenta como disponible si se comprobo que funciona. */
@@ -211,10 +217,10 @@ export const funciona = (v: Verdict) => v.estado === "funciona";
 
 export function describir(v: Verdict): string {
   switch (v.estado) {
-    case "funciona": return "funciona";
-    case "rechazado": return `rechazado (${v.status})`;
-    case "roto": return `roto (${v.status})`;
-    case "sin_probar": return "sin probar";
-    case "error": return `error: ${v.detalle}`;
+    case "funciona": return t("verdict.funciona");
+    case "rechazado": return t("verdict.rechazado", { status: v.status });
+    case "roto": return t("verdict.roto", { status: v.status });
+    case "sin_probar": return t("verdict.sinProbar");
+    case "error": return t("verdict.error", { detalle: v.detalle });
   }
 }

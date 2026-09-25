@@ -192,6 +192,13 @@ table.caps tr.discrepa { background: color-mix(in srgb, var(--ambar) 8%, transpa
    cuando la de arriba esta apagada. */
 .preferencia .anidada { margin-top: 12px; padding-left: 26px; }
 .preferencia .apagada { opacity: 0.5; cursor: default; }
+/* Idioma: el texto a la izquierda y el selector a la derecha, antes que el resto. */
+.preferencia .idioma { display: flex; gap: 14px; align-items: center; justify-content: space-between; }
+.preferencia .idioma + label { margin-top: 14px; }
+.preferencia .idioma select {
+  flex: none; padding: 6px 9px; border-radius: 7px;
+  border: 1px solid var(--borde); background: var(--fondo); color: var(--texto);
+}
 
 .vacio { text-align: center; padding: 56px 20px; color: var(--tenue); }
 .vacio h2 { font-size: 17px; margin-bottom: 6px; color: var(--texto); }

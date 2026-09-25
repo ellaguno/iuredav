@@ -49,6 +49,9 @@ async fn main() -> Result<()> {
         .without_time()
         .init();
 
+    // La sonda de diagnostico habla en espanol; los mensajes del nucleo, igual.
+    iuredav_core::lang::set(iuredav_core::lang::Lang::Es);
+
     match Cli::parse().orden {
         Orden::Probe(a) => sonda::ejecutar(a).await,
         Orden::Mount(a) => montar::ejecutar(a).await,

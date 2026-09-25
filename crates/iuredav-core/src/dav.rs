@@ -1,6 +1,7 @@
 //! Utilidades minimas de WebDAV: metodos no estandar y lectura de `multistatus`.
 
 use anyhow::{Context, Result};
+use iurefficient_connect::lang::pick;
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use reqwest::Method;
@@ -64,7 +65,10 @@ pub fn parse_multistatus(xml: &str) -> Result<Vec<DavEntry>> {
     let mut pila: Vec<String> = Vec::new();
 
     loop {
-        match reader.read_event().context("XML multistatus mal formado")? {
+        match reader
+            .read_event()
+            .with_context(|| pick("malformed multistatus XML", "XML multistatus mal formado"))?
+        {
             Event::Start(e) => {
                 let n = nombre_local(e.local_name().as_ref());
                 if n == "response" {
