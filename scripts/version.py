@@ -46,7 +46,7 @@ def escribir(nueva: str) -> None:
 
 
 def escribir_lock(nueva: str) -> None:
-    """Cargo.lock lleva tambien la version de los crates del propio workspace.
+    """Cargo.lock (y package-lock.json) lleva tambien la version de los crates del propio workspace.
 
     Si no se toca aqui, el arbol queda incoherente hasta el siguiente `cargo
     build` y una etiqueta puede acabar llevando un lock que dice otra version:
@@ -62,6 +62,16 @@ def escribir_lock(nueva: str) -> None:
         s = re.sub(rf'(^\[\[package\]\]\nname = "{crate}"\nversion = ")[^"]+(")',
                    rf"\g<1>{nueva}\g<2>", s, count=1, flags=re.M)
     p.write_text(s, encoding="utf-8")
+
+    # package-lock.json repite la version del paquete raiz en dos sitios. Se
+    # retoca como texto y no reescribiendo el JSON, para no cambiarle el formato.
+    p = RAIZ / "package-lock.json"
+    if p.exists():
+        s = p.read_text(encoding="utf-8")
+        s = re.sub(r'^(  "version": ")[^"]+(")', rf"\g<1>{nueva}\g<2>", s, count=1, flags=re.M)
+        s = re.sub(r'^(    "": \{\n(?:      .*\n)*?      "version": ")[^"]+(")',
+                   rf"\g<1>{nueva}\g<2>", s, count=1, flags=re.M)
+        p.write_text(s, encoding="utf-8")
 
 
 def main() -> int:
@@ -85,7 +95,7 @@ def main() -> int:
 
     escribir(nueva)
     escribir_lock(nueva)
-    print(f"  version puesta a {nueva} en los tres ficheros (y en Cargo.lock)")
+    print(f"  version puesta a {nueva} en los tres ficheros (y en los lock)")
     print("  siguiente paso:")
     print(f"    git commit -am 'Version {nueva}'")
     # Anotada a proposito: `--follow-tags` NO empuja las ligeras, asi que
