@@ -1,6 +1,6 @@
 // Instalar una versión nueva dentro de la app (releases firmadas de GitHub, vía el
-// actualizador de Tauri). En Linux sólo aplica al AppImage; con .deb/.rpm el aviso
-// enlaza la descarga. Antes de instalar se desmontan las unidades para que rclone
+// actualizador de Tauri). En Linux instala el mismo tipo de paquete que la app
+// (AppImage, o .deb/.rpm con pkexec según latest.json). Antes de instalar se desmontan las unidades para que rclone
 // no se quede colgado del binario viejo; siguen marcadas para volver al arrancar.
 import { api } from "./api";
 import { t } from "./i18n";

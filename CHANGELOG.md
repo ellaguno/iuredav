@@ -18,6 +18,15 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.8.1] — 2026-09-29
+
+### Corregido
+
+- **Actualizar desde la app en Linux con el paquete .deb o .rpm.** El manifiesto del
+  actualizador sólo ofrecía el AppImage, que una instalación .deb rechaza («update is
+  not a valid deb package»); ahora incluye el .deb y el .rpm firmados y la app instala
+  el mismo tipo de paquete que tiene (pide la contraseña de administrador).
+
 ## [0.8.0] — 2026-09-25
 
 ### Añadido
