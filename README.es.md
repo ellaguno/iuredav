@@ -83,7 +83,7 @@ la unidad y qué explicarte cuando algo no se puede hacer.
   (Nextcloud, ownCloud, Synology, Seafile, `mod_dav`…).
 - **Entrar con tu cuenta de Iurefficient**: IureDav obtiene una contraseña de
   aplicación a nombre de este equipo y la guarda en el llavero que comparte con
-  IureTranscribe, IureEditor e IureOCR. Iniciar sesión una vez sirve para todas.
+  IureTranscribe, iureditor e IureOCR. Iniciar sesión una vez sirve para todas.
 - **Carpetas sin conexión**: marca una carpeta y se descarga para que puedas
   abrirla sin internet.
 - **Vive en la bandeja**: cerrar la ventana no desmonta; arranca con la sesión
@@ -145,7 +145,7 @@ tienes), IureDav inicia sesión, le pide a la instancia una contraseña de
 aplicación a nombre de este equipo y la guarda en el llavero del sistema. Tú nunca
 ves el `iurdav_…`, y la contraseña de la cuenta no se guarda. La contraseña de
 aplicación y la sesión viven en la misma entrada del llavero (servicio
-`iurefficient`) que usan IureTranscribe, IureEditor e IureOCR, así que si otra app
+`iurefficient`) que usan IureTranscribe, iureditor e IureOCR, así que si otra app
 inició sesión primero, el formulario viene con el dominio y el correo puestos.
 Sigue disponible *Ya tengo una contraseña de aplicación* para el caso manual, con
 un botón que abre la página de perfil de tu instancia donde se genera.
@@ -251,7 +251,7 @@ se puede apagar en la tarjeta de preferencias.
 | App | Qué hace |
 |---|---|
 | [IureTranscribe](https://github.com/ellaguno/iuretranscribe) | Transcripción local con Whisper, grabación en vivo con quién habló, resumen y minuta. |
-| [IureEditor](https://github.com/ellaguno/iureditor) | Editor Markdown WYSIWYG con Mermaid, LaTeX y exportación a PDF/DOCX. |
+| [iureditor](https://github.com/ellaguno/iureditor) | Editor Markdown WYSIWYG con Mermaid, LaTeX y exportación a PDF/DOCX. |
 | **IureDav** | Monta un servidor WebDAV (o Iurefficient) como unidad. |
 | [IureOCR](https://github.com/ellaguno/iureocr) | OCR local que convierte escaneos en PDF con texto buscable. |
 | [iureTI](https://github.com/ellaguno/iureTI) | Sonda de descubrimiento de activos de TI para el inventario de Iurefficient. |

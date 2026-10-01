@@ -162,7 +162,8 @@ fn al_elegir(app: &AppHandle, evento: MenuEvent) {
         "mostrar" => mostrar_ventana(app),
         "actualizar" => {
             // Abre la pagina de la release en el navegador: ahi estan los
-            // instaladores. No se descarga ni se instala nada desde aqui.
+            // instaladores. Desde la bandeja no se instala nada; eso lo hace
+            // «Actualizar ahora» en la ventana.
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
                 let nueva = app.state::<Estado>().actualizacion.lock().await.clone();

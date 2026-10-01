@@ -194,7 +194,7 @@ export const api = {
 
   acercaDe: () => invoke<AcercaDe>("acerca_de"),
 
-  /** Apps hermanas (IureTranscribe, IureEditor, IureOCR): con red consulta también la última versión. */
+  /** Apps hermanas (IureTranscribe, iureditor, IureOCR): con red consulta también la última versión. */
   apps: (conRed: boolean) => invoke<EstadoApp[]>("apps_estado", { conRed }),
   lanzarApp: (app: AppId) => invoke<void>("lanzar_app", { app }),
   /** Enlaces `iuredav://` con los que se abrió la app. */

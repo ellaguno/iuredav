@@ -1,10 +1,9 @@
 //! Aviso de versiones nuevas.
 //!
 //! Solo avisa: consulta la ultima release publicada en GitHub, la compara con la
-//! version propia y, si hay una mas nueva, devuelve donde descargarla. No instala
-//! nada. Instalar desde dentro exigiria firmar los paquetes y reemplazar un
-//! binario que puede tener montajes activos; sin firma de codigo, la mitad de la
-//! gracia se pierde, asi que eso queda para mas adelante.
+//! version propia y, si hay una mas nueva, devuelve donde descargarla. Este modulo
+//! no instala nada: la instalacion la hace la interfaz con el actualizador de Tauri
+//! (`src/actualizador.ts`), con los paquetes firmados de `latest.json`.
 //!
 //! La consulta es anonima y sin credenciales: GitHub permite sesenta por hora y
 //! direccion, y aqui se hace una al arrancar y otra al dia mientras el programa

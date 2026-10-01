@@ -638,7 +638,7 @@ pub struct AcercaDe {
 }
 
 // ---------------------------------------------------------------------------
-// Apps hermanas (IureTranscribe, IureEditor, IureOCR) y enlaces `iuredav://`.
+// Apps hermanas (IureTranscribe, iureditor, IureOCR) y enlaces `iuredav://`.
 // ---------------------------------------------------------------------------
 
 /// Las apps de escritorio de Iurefficient: instaladas aquí y última versión publicada.

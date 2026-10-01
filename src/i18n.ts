@@ -25,7 +25,7 @@ const en = {
   // Versión nueva
   "nueva.titulo": "A new version of IureDav is available: {version}",
   "nueva.texto":
-    "It can be installed from here (AppImage, Windows and macOS): the drives are unmounted, the update is installed and IureDav restarts. If you installed it with .deb or .rpm, download the new package.",
+    "It can be installed from here: the drives are unmounted, the signed update is downloaded and installed, and IureDav restarts. With the .deb or .rpm package it asks for the administrator password.",
   "nueva.comprobando": "Checking…",
   "nueva.error":
     "Couldn't update from the app ({error}). Download the installer from the release page.",
@@ -85,7 +85,7 @@ const en = {
     "When you sign in it doesn't open the window: only the tray icon appears. If you open it yourself, the window is always shown.",
   "pref.avisar": "Notify me of new versions",
   "pref.avisar.detalle":
-    "Once a day it checks GitHub for a newer version and says so here and in the tray. It doesn't download or install anything.",
+    "At start-up and once a day it checks GitHub for a newer version, says so here and in the tray, and offers to install it. Turned off, it doesn't check.",
 
   // Tarjeta de conexión
   "conexion.montado": "Mounted",
@@ -150,7 +150,7 @@ const en = {
   "form.codigo.ejemplo": "6 digits",
   "form.passCuenta.ejemplo": "The same one you use to sign in on the web",
   "form.passCuenta.pista":
-    "Your password isn't stored: IureDav signs in, asks the instance for an app password in this computer's name and saves it in the system keychain, shared with IureTranscribe, IureEditor and IureOCR.",
+    "Your password isn't stored: IureDav signs in, asks the instance for an app password in this computer's name and saves it in the system keychain, shared with IureTranscribe, iureditor and IureOCR.",
   "form.conectando": "Connecting…",
   "form.verificar": "Verify",
   "form.conectar": "Connect and get access",
@@ -219,7 +219,7 @@ const en = {
   // Apps de Iurefficient
   "apps.titulo": "Iurefficient apps",
   "apps.texto":
-    "IureDav mounts your documents as a drive; IureTranscribe transcribes meetings and audio; IureEditor edits documents and uploads versions; IureOCR recognizes the text of scanned documents and images with Tesseract and includes PDF tools. They share the account and the keychain.",
+    "IureDav mounts your documents as a drive; IureTranscribe transcribes meetings and audio; iureditor edits documents and uploads versions; IureOCR recognizes the text of scanned documents and images with Tesseract and includes PDF tools. They share the account and the keychain.",
   "apps.estaApp": "this app",
   "apps.instalada": "installed",
   "apps.noInstalada": "not installed",
@@ -241,7 +241,7 @@ const es: Record<Clave, string> = {
 
   "nueva.titulo": "Hay una versión nueva de IureDav: {version}",
   "nueva.texto":
-    "Puede instalarse desde aquí (AppImage, Windows y macOS): se desmontan las unidades, se instala y IureDav se reinicia. Si se instaló con .deb o .rpm, descarga el paquete nuevo.",
+    "Puede instalarse desde aquí: se desmontan las unidades, se descarga e instala la actualización firmada y IureDav se reinicia. Con el paquete .deb o .rpm pide la contraseña de administrador.",
   "nueva.comprobando": "Comprobando…",
   "nueva.error":
     "No se pudo actualizar desde la app ({error}). Descarga el instalador desde la página de la release.",
@@ -296,7 +296,7 @@ const es: Record<Clave, string> = {
     "Al iniciar sesión no abre la ventana: solo aparece el icono en la bandeja. Si lo abres tú, la ventana se muestra siempre.",
   "pref.avisar": "Avisar de versiones nuevas",
   "pref.avisar.detalle":
-    "Una vez al día consulta en GitHub si hay una versión más nueva y lo dice aquí y en la bandeja. No descarga ni instala nada.",
+    "Al arrancar y una vez al día consulta en GitHub si hay una versión más nueva, lo dice aquí y en la bandeja y ofrece instalarla. Apagado, no consulta.",
 
   "conexion.montado": "Montado",
   "conexion.desmontado": "Desmontado",
@@ -357,7 +357,7 @@ const es: Record<Clave, string> = {
   "form.codigo.ejemplo": "6 dígitos",
   "form.passCuenta.ejemplo": "La misma con la que entras a la web",
   "form.passCuenta.pista":
-    "Tu contraseña no se guarda: IureDav inicia sesión, pide a la instancia una contraseña de aplicación a nombre de este equipo y la guarda en el llavero del sistema, compartido con IureTranscribe, IureEditor e IureOCR.",
+    "Tu contraseña no se guarda: IureDav inicia sesión, pide a la instancia una contraseña de aplicación a nombre de este equipo y la guarda en el llavero del sistema, compartido con IureTranscribe, iureditor e IureOCR.",
   "form.conectando": "Conectando…",
   "form.verificar": "Verificar",
   "form.conectar": "Conectar y obtener acceso",
@@ -423,7 +423,7 @@ const es: Record<Clave, string> = {
 
   "apps.titulo": "Apps de Iurefficient",
   "apps.texto":
-    "IureDav monta tus documentos como una unidad; IureTranscribe transcribe reuniones y audios; IureEditor edita los documentos y sube versiones; IureOCR reconoce el texto de documentos escaneados e imágenes con Tesseract y trae herramientas PDF. Comparten la cuenta y el llavero.",
+    "IureDav monta tus documentos como una unidad; IureTranscribe transcribe reuniones y audios; iureditor edita los documentos y sube versiones; IureOCR reconoce el texto de documentos escaneados e imágenes con Tesseract y trae herramientas PDF. Comparten la cuenta y el llavero.",
   "apps.estaApp": "esta app",
   "apps.instalada": "instalada",
   "apps.noInstalada": "no instalada",

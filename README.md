@@ -83,7 +83,7 @@ mount the drive and what to explain to you when something can't be done.
   (Nextcloud, ownCloud, Synology, Seafile, `mod_dav`…).
 - **Sign in with your Iurefficient account**: IureDav gets an app password in
   this computer's name and keeps it in the keychain it shares with
-  IureTranscribe, IureEditor and IureOCR. Signing in once serves all of them.
+  IureTranscribe, iureditor and IureOCR. Signing in once serves all of them.
 - **Offline folders**: mark a folder and it's downloaded so you can open it
   without internet.
 - **Lives in the tray**: closing the window doesn't unmount; it starts with the
@@ -142,7 +142,7 @@ have one), IureDav signs in, asks the instance for an app password in this
 computer's name and saves it in the system keychain. You never see the
 `iurdav_…`, and the account password isn't stored. The app password and the
 session live in the same keychain entry (service `iurefficient`) that
-IureTranscribe, IureEditor and IureOCR use, so if another app signed in first the
+IureTranscribe, iureditor and IureOCR use, so if another app signed in first the
 form comes with the domain and email already filled in. *I already have an app
 password* is still there for the manual case, with a button that opens the
 profile page of your instance where you generate it.
@@ -248,7 +248,7 @@ the preferences card.
 | App | What it does |
 |---|---|
 | [IureTranscribe](https://github.com/ellaguno/iuretranscribe) | Local Whisper transcription, live recording with who-spoke, summaries and minutes. |
-| [IureEditor](https://github.com/ellaguno/iureditor) | WYSIWYG Markdown editor with Mermaid, LaTeX and PDF/DOCX export. |
+| [iureditor](https://github.com/ellaguno/iureditor) | WYSIWYG Markdown editor with Mermaid, LaTeX and PDF/DOCX export. |
 | **IureDav** | Mount a WebDAV server (or Iurefficient) as a drive. |
 | [IureOCR](https://github.com/ellaguno/iureocr) | Local OCR that turns scans into searchable PDFs. |
 | [iureTI](https://github.com/ellaguno/iureTI) | IT asset discovery probe for the Iurefficient inventory. |

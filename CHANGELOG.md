@@ -18,6 +18,17 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Textos del actualizador.** La preferencia «Avisar de versiones nuevas»
+  seguía diciendo que no descarga ni instala nada; ahora explica que consulta
+  GitHub al arrancar y una vez al día, ofrece instalar la versión nueva y que,
+  apagada, no consulta. El aviso de versión nueva ya no pide a quien instaló con
+  `.deb` o `.rpm` que descargue el paquete a mano: también se instala desde la app
+  (pide la contraseña de administrador).
+- El editor de la suite se llama ahora «iureditor», en minúsculas, en la
+  interfaz y en la documentación.
+
 ## [0.8.1] — 2026-09-29
 
 ### Corregido
@@ -68,7 +79,7 @@ proceso se detiene antes de construir nada.
 
 - **Una sola sesión para las tres apps.** Al iniciar sesión con la cuenta de
   Iurefficient, IureDav deja anotada la instancia y el correo para IureTranscribe
-  e IureEditor, que arrancan ya conectadas. A la inversa, si otra app inició
+  e iureditor, que arrancan ya conectadas. A la inversa, si otra app inició
   sesión primero, el formulario de conexión nueva viene con el dominio y el
   correo puestos y sólo pide la contraseña. La sesión se sincroniza con el
   llavero antes de cada renovación, para que dos apps abiertas a la vez no se
@@ -139,7 +150,7 @@ proceso se detiene antes de construir nada.
 ### Añadido
 
 - **Apps de Iurefficient.** Tarjeta en la lista de conexiones con las tres apps
-  de escritorio (IureTranscribe, IureEditor e IureDav): cuáles están instaladas
+  de escritorio (IureTranscribe, iureditor e IureDav): cuáles están instaladas
   en este equipo, la última versión publicada y de dónde descargarlas o abrirlas.
 - **Enlaces `iuredav://`.** `iuredav://montar?perfil=<id>` monta una conexión y
   `iuredav://nueva` abre el formulario; sirven para lanzar IureDav desde otra app
@@ -155,7 +166,7 @@ proceso se detiene antes de construir nada.
   ahora»: desmonta las unidades, descarga el instalador firmado, lo aplica y
   reinicia IureDav. Funciona con el AppImage en Linux y con los instaladores de
   Windows y macOS; con `.deb` o `.rpm` sigue enlazando la descarga. Las releases
-  publican un `latest.json` firmado con la misma llave que IureEditor e
+  publican un `latest.json` firmado con la misma llave que iureditor e
   IureTranscribe.
 
 ## [0.5.0]
@@ -169,7 +180,7 @@ proceso se detiene antes de construir nada.
   este equipo y la guarda en el llavero del sistema. Tú nunca ves el `iurdav_…`
   ni tienes que abrir tu perfil. La contraseña de la cuenta no se guarda.
 - **Llavero compartido con las demás apps.** La contraseña de aplicación y la
-  sesión se guardan en la misma entrada que usan IureTranscribe e IureEditor
+  sesión se guardan en la misma entrada que usan IureTranscribe e iureditor
   (servicio `iurefficient`), así que conectar en una vale para todas. Sigue
   disponible «Ya tengo una contraseña de aplicación» para el caso manual.
 - IureDav usa ahora el conector común

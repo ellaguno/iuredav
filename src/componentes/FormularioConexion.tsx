@@ -69,7 +69,7 @@ export default function FormularioConexion({ onGuardado, onCancelar }: Props) {
   }, [idioma]);
 
   useEffect(() => {
-    // Si otra app de Iurefficient (IureTranscribe, IureEditor, IureOCR) ya inició
+    // Si otra app de Iurefficient (IureTranscribe, iureditor, IureOCR) ya inició
     // sesión en este equipo, se parte de esa instancia y correo: solo falta la contraseña.
     api.cuentaActiva().then((c) => {
       if (!c) return;

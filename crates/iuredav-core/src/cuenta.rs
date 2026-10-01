@@ -82,7 +82,7 @@ pub async fn iniciar_sesion(
     };
 
     // La sesion (cookies de acceso, refresco y CSRF) ya la guardo el conector en el
-    // llavero compartido con IureTranscribe, IureEditor e IureOCR al iniciar sesion
+    // llavero compartido con IureTranscribe, iureditor e IureOCR al iniciar sesion
     // (`Session::login` / `verify_totp` llaman a `push_shared`). Aqui solo se anota
     // la cuenta activa para que las demas arranquen ya conectadas sin volver a
     // pedir dominio ni correo.
