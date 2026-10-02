@@ -21,6 +21,6 @@ quick-xml = "0.37"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
-iurefficient-connect = { git = "https://github.com/ellaguno/iurefficient-connect", tag = "v0.6.0" }
+iurefficient-connect = { git = "https://github.com/ellaguno/iurefficient-connect", tag = "v0.7.1" }
 directories = "6"
 getrandom = "0.3"

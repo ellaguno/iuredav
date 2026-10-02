@@ -18,6 +18,11 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- Conector `iurefficient-connect` 0.7.1 (antes 0.6.0): la tarjeta de apps de
+  Iurefficient muestra el editor como «iureditor».
+
 ### Corregido
 
 - **Textos del actualizador.** La preferencia «Avisar de versiones nuevas»
