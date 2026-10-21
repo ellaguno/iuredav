@@ -18,6 +18,8 @@ proceso se detiene antes de construir nada.
 
 ## [Sin publicar]
 
+## [0.8.2] — 2026-10-21
+
 ### Cambiado
 
 - Conector `iurefficient-connect` 0.7.1 (antes 0.6.0): la tarjeta de apps de
@@ -33,6 +35,8 @@ proceso se detiene antes de construir nada.
   (pide la contraseña de administrador).
 - El editor de la suite se llama ahora «iureditor», en minúsculas, en la
   interfaz y en la documentación.
+- **Selección de texto en modo oscuro.** El texto seleccionado casi no se veía;
+  ahora la selección tiene color propio, legible en claro y en oscuro.
 
 ## [0.8.1] — 2026-09-29
 
