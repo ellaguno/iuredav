@@ -1,0 +1,4 @@
+Unidad de Iurefficient montada, con sus límites y carpetas sin conexión
+Sonda: lo que el servidor anuncia frente a lo que funciona
+Carpetas sin conexión descargándose, con tema oscuro
+Conexión nueva con la cuenta de Iurefficient
